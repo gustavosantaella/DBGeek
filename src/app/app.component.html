@@ -108,11 +108,11 @@
 
     <main class="content-area">
       <div class="tabs-header glass">
-        <div *ngFor="let tab of tabs; let i = index" 
+        <div *ngFor="let tab of tabs; let i = index; trackBy: trackByTab" 
              class="tab-item" 
              [class.active]="activeTabIndex === i"
              (click)="activeTabIndex = i">
-          <!-- Icono de pestaña dinámico (Query, ER Diagram, Project Manager) -->
+          <!-- Icono de pestaña dinámico -->
           <span class="tab-icon">
             {{tab.type === 'query' ? '📝' : (tab.type === 'er-diagram' ? '🕸️' : '📁')}}
           </span>
@@ -123,101 +123,99 @@
       </div>
 
       <div class="tab-content" *ngIf="tabs.length > 0">
-        
-        <!-- PESTAÑA SQL QUERY -->
-        <ng-container *ngIf="tabs[activeTabIndex].type === 'query'">
-          <div class="editor-container glass">
-            <div class="editor-actions">
-              <button class="run-btn" (click)="executeQuery()" [disabled]="executing">
-                <svg *ngIf="!executing" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.25 3.5l8.5 4.5-8.5 4.5v-9z"/></svg>
-                <span class="spinner mini" *ngIf="executing"></span>
-                {{executing ? 'Running...' : 'Run Selection'}}
-              </button>
-              <span class="exec-info" *ngIf="lastExecutionTime">{{lastExecutionTime}}ms</span>
-            </div>
-            <ngx-monaco-editor 
-              class="monaco-editor" 
-              [options]="editorOptions" 
-              [(ngModel)]="tabs[activeTabIndex].sql"
-              (onInit)="onEditorInit($event)">
-            </ngx-monaco-editor>
-          </div>
-
-          <div class="results-container glass">
-            <ag-grid-angular
-              class="ag-theme-alpine-dark full-height"
-              [rowData]="results"
-              [columnDefs]="columnDefs"
-              [defaultColDef]="defaultColDef">
-            </ag-grid-angular>
-          </div>
-        </ng-container>
-
-        <!-- PESTAÑA PROJECT MANAGER -->
-        <ng-container *ngIf="tabs[activeTabIndex].type === 'project-manager'">
-          <div class="project-manager-view glass">
-            <h2>Project Manager</h2>
-            <div class="add-project-form">
-              <app-select label="Parent Project" [(ngModel)]="selectedParentProject" [options]="[{label: 'None', value: ''}, {label: 'Root', value: 'root'}, ...projectListFlat]"></app-select>
-              <app-input label="Project Name" [(ngModel)]="newProjectName" (keyup.enter)="addProject()"></app-input>
-              <button class="run-btn" (click)="addProject()">Create Project</button>
-            </div>
-
-            <div class="project-list-display">
-              <h3>Existing Projects</h3>
-              <ng-container *ngTemplateOutlet="projectTemplate; context: { $implicit: projects, level: 0 }"></ng-container>
-            </div>
-
-            <ng-template #projectTemplate let-projs let-level="level">
-              <div *ngFor="let p of projs; trackBy: trackByProject" [style.padding-left.px]="level * 20" class="project-item" [class.expanded]="p.isExpanded">
-                <div class="project-header" (click)="toggleProjectExpansion(p, $event)">
-                  <span class="project-icon">📁</span>
-                  <ng-container *ngIf="!p.isEditing">
-                    <span class="project-name">{{p.name}}</span>
-                    <span class="project-stats">
-                      <span class="stat-item"><span class="icon">&#x1F4DA;</span> {{p.subProjects?.length || 0}}</span>
-                      <span class="stat-item"><span class="icon">&#x1F517;</span> {{getConnectionCount(p.name)}}</span>
-                    </span>
-                    <div class="project-actions" (click)="$event.stopPropagation()">
-                      <button class="icon-btn edit-btn" (click)="p.isEditing = true">✏️</button>
-                      <button class="icon-btn delete-btn" (click)="deleteProject(p)">🗑️</button>
-                    </div>
-                  </ng-container>
-                  <ng-container *ngIf="p.isEditing">
-                    <input [(ngModel)]="p.name" (blur)="saveProjectName(p)" (keyup.enter)="saveProjectName(p)" (click)="$event.stopPropagation()">
-                    <div class="project-actions" (click)="$event.stopPropagation()">
-                      <button class="icon-btn" (click)="saveProjectName(p)">✅</button>
-                      <button class="icon-btn" (click)="p.isEditing = false">❌</button>
-                    </div>
-                  </ng-container>
-                  <span class="chevron" [class.expanded]="p.isExpanded">▸</span>
-                </div>
-                <div class="sub-project-list" *ngIf="p.isExpanded && p.subProjects && p.subProjects.length > 0">
-                  <ng-container *ngTemplateOutlet="projectTemplate; context: { $implicit: p.subProjects, level: level + 1 }"></ng-container>
-                </div>
-              </div>
-            </ng-template>
-          </div>
-        </ng-container>
-
-        <!-- PESTAÑA ER DIAGRAM -->
-        <ng-container *ngIf="tabs[activeTabIndex].type === 'er-diagram'">
-          <div class="er-diagram-view glass">
-            <h2>ER Diagram: {{ tabs[activeTabIndex].target?.name }}</h2>
+        <ng-container *ngFor="let tab of tabs; let i = index; trackBy: trackByTab">
+          
+          <div class="tab-pane full-height" [class.active-pane]="activeTabIndex === i">
             
-            <div class="er-placeholder">
-              <span class="placeholder-icon">🕸️</span>
-              <h3>Diagram Visualizer</h3>
-              <p>En el futuro, aquí se renderizarán las relaciones de la base de datos.</p>
-              <p class="sub-text">Puedes integrar librerías como Mermaid.js, D3.js o vis-network para dibujar las tablas y sus Foreign Keys.</p>
-              
-              <button class="run-btn" style="margin-top: 20px;">
-                Generate Diagram
-              </button>
-            </div>
+            <ng-container *ngIf="tab.type === 'query'">
+              <div class="editor-container glass">
+                <div class="editor-actions">
+                  <button class="run-btn" (click)="executeQuery()" [disabled]="executing">
+                    <svg *ngIf="!executing" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.25 3.5l8.5 4.5-8.5 4.5v-9z"/></svg>
+                    <span class="spinner mini" *ngIf="executing"></span>
+                    {{executing ? 'Running...' : 'Run Selection'}}
+                  </button>
+                  <span class="exec-info" *ngIf="lastExecutionTime">{{lastExecutionTime}}ms</span>
+                </div>
+                <ngx-monaco-editor 
+                  class="monaco-editor" 
+                  [options]="editorOptions" 
+                  [(ngModel)]="tab.sql"
+                  (onInit)="onEditorInit($event)">
+                </ngx-monaco-editor>
+              </div>
+
+              <div class="results-container glass">
+                <ag-grid-angular
+                  class="ag-theme-alpine-dark full-height"
+                  [rowData]="results"
+                  [columnDefs]="columnDefs"
+                  [defaultColDef]="defaultColDef">
+                </ag-grid-angular>
+              </div>
+            </ng-container>
+
+            <ng-container *ngIf="tab.type === 'project-manager'">
+              <div class="project-manager-view glass">
+                <h2>Project Manager</h2>
+                <div class="add-project-form">
+                  <app-select label="Parent Project" [(ngModel)]="selectedParentProject" [options]="[{label: 'None', value: ''}, {label: 'Root', value: 'root'}, ...projectListFlat]"></app-select>
+                  <app-input label="Project Name" [(ngModel)]="newProjectName" (keyup.enter)="addProject()"></app-input>
+                  <button class="run-btn" (click)="addProject()">Create Project</button>
+                </div>
+
+                <div class="project-list-display">
+                  <h3>Existing Projects</h3>
+                  <ng-container *ngTemplateOutlet="projectTemplate; context: { $implicit: projects, level: 0 }"></ng-container>
+                </div>
+
+                <ng-template #projectTemplate let-projs let-level="level">
+                  <div *ngFor="let p of projs; trackBy: trackByProject" [style.padding-left.px]="level * 20" class="project-item" [class.expanded]="p.isExpanded">
+                    <div class="project-header" (click)="toggleProjectExpansion(p, $event)">
+                      <span class="project-icon">📁</span>
+                      <ng-container *ngIf="!p.isEditing">
+                        <span class="project-name">{{p.name}}</span>
+                        <span class="project-stats">
+                          <span class="stat-item"><span class="icon">&#x1F4DA;</span> {{p.subProjects?.length || 0}}</span>
+                          <span class="stat-item"><span class="icon">&#x1F517;</span> {{getConnectionCount(p.name)}}</span>
+                        </span>
+                        <div class="project-actions" (click)="$event.stopPropagation()">
+                          <button class="icon-btn edit-btn" (click)="p.isEditing = true">✏️</button>
+                          <button class="icon-btn delete-btn" (click)="deleteProject(p)">🗑️</button>
+                        </div>
+                      </ng-container>
+                      <ng-container *ngIf="p.isEditing">
+                        <input [(ngModel)]="p.name" (blur)="saveProjectName(p)" (keyup.enter)="saveProjectName(p)" (click)="$event.stopPropagation()">
+                        <div class="project-actions" (click)="$event.stopPropagation()">
+                          <button class="icon-btn" (click)="saveProjectName(p)">✅</button>
+                          <button class="icon-btn" (click)="p.isEditing = false">❌</button>
+                        </div>
+                      </ng-container>
+                      <span class="chevron" [class.expanded]="p.isExpanded">▸</span>
+                    </div>
+                    <div class="sub-project-list" *ngIf="p.isExpanded && p.subProjects && p.subProjects.length > 0">
+                      <ng-container *ngTemplateOutlet="projectTemplate; context: { $implicit: p.subProjects, level: level + 1 }"></ng-container>
+                    </div>
+                  </div>
+                </ng-template>
+              </div>
+            </ng-container>
+
+            <ng-container *ngIf="tab.type === 'er-diagram'">
+              <div class="er-diagram-view glass">
+                <div class="er-toolbar">
+                  <h2>ER Diagram: {{ tab.target?.name }}</h2>
+                  <span class="badge" *ngIf="tab.target?.env !== 'default'">{{ tab.target?.env | uppercase }}</span>
+                </div>
+                
+                <!-- EL CANVAS PARA VIS-NETWORK -->
+                <div [id]="'network-' + tab.id" class="network-canvas"></div>
+
+              </div>
+            </ng-container>
+
           </div>
         </ng-container>
-
       </div>
     </main>
   </div>

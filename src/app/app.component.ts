@@ -8,6 +8,9 @@ import { ElectronService } from './services/electron';
 import { InputComponent } from './components/input/input';
 import { SelectComponent } from './components/select/select';
 
+// IMPORTACIÓN ESTABLE PARA ANGULAR
+import { Network } from 'vis-network/standalone';
+
 interface Project {
   name: string;
   subProjects: Project[];
@@ -99,6 +102,8 @@ export class AppComponent implements OnInit {
   console: Console = console; 
   tabCounter = 0;
 
+  networks: { [tabId: number]: Network } = {};
+
   private editor: any;
   editorOptions = {
     theme: 'vs-dark',
@@ -152,6 +157,7 @@ export class AppComponent implements OnInit {
   trackByTable(index: number, table: any) { return table.name; }
   trackBySchema(index: number, schema: any) { return schema.name; }
   trackByProject(index: number, project: any) { return project.name; }
+  trackByTab(index: number, tab: Tab) { return tab.id; } 
 
   toggleSidebar() {
     this.zone.run(() => {
@@ -249,18 +255,69 @@ export class AppComponent implements OnInit {
   }
 
   openERDiagram(conn: any) {
+    console.log(`[ER Diagram] Clic en 'View ER Diagram' para la conexión:`, conn.name);
+    
     this.zone.run(() => {
       this.tabCounter++;
+      const newTabId = this.tabCounter;
+      console.log(`[ER Diagram] Creando pestaña #${newTabId}`);
+      
       this.tabs.push({ 
-        id: this.tabCounter, 
+        id: newTabId, 
         title: `ER: ${conn.name}`, 
         sql: '', 
         type: 'er-diagram',
         target: conn 
       });
       this.activeTabIndex = this.tabs.length - 1;
+      
+      console.log(`[ER Diagram] Forzando actualización del DOM...`);
       this.cdr.detectChanges();
+
+      // Damos 300ms a Angular para pintar el DIV antes de buscarlo
+      setTimeout(() => {
+        console.log(`[ER Diagram] Timeout completado. Llamando a initERDiagram...`);
+        this.initERDiagram(newTabId, conn);
+      }, 300);
     });
+  }
+initERDiagram(tabId: number, conn: any) {
+    const containerId = `network-${tabId}`;
+    const container = document.getElementById(containerId);
+    
+    if (!container) return;
+
+    try {
+      const nodes: any[] = [
+        { id: '1', label: '<b>TABLE_A</b>\nkey: int', shape: 'box', color: '#1e293b', font: { color: '#fff', multi: 'html' } },
+        { id: '2', label: '<b>TABLE_B</b>\nkey: int', shape: 'box', color: '#1e293b', font: { color: '#fff', multi: 'html' } }
+      ];
+      const edges: any[] = [{ from: '1', to: '2', arrows: 'to' }];
+
+      const options: any = {
+        autoResize: true,
+        height: '100%',
+        width: '100%',
+        physics: { enabled: true, solver: 'repulsion' }
+      };
+
+      this.zone.runOutsideAngular(() => {
+        const network = new Network(container, { nodes, edges }, options);
+        this.networks[tabId] = network;
+
+        // --- EL TRUCO FINAL ---
+        // Esperamos a que la animación de la pestaña termine y forzamos el tamaño
+        setTimeout(() => {
+          console.log("[ER Diagram] Forzando redibujado manual...");
+          network.setSize(container.clientWidth + 'px', container.clientHeight + 'px');
+          network.redraw();
+          network.fit();
+        }, 500); 
+      });
+
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   onEditorInit(editor: any) {
@@ -694,6 +751,13 @@ export class AppComponent implements OnInit {
   closeTab(index: number, event: MouseEvent) {
     event.stopPropagation();
     this.zone.run(() => {
+      const tabId = this.tabs[index].id;
+      if (this.networks[tabId]) {
+        console.log(`[ER Diagram] Destruyendo instancia de memoria para pestaña ${tabId}`);
+        this.networks[tabId].destroy();
+        delete this.networks[tabId];
+      }
+
       this.tabs.splice(index, 1);
       if (this.activeTabIndex >= this.tabs.length) this.activeTabIndex = this.tabs.length - 1;
       this.cdr.detectChanges();
