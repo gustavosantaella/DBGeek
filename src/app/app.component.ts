@@ -22,6 +22,13 @@ interface Tab {
   type?: 'query' | 'project-manager';
 }
 
+interface Schema {
+  name: string;
+  tables?: any[];
+  expanded?: boolean;
+  loading?: boolean;
+}
+
 interface Database {
   name: string;
   tables?: any[]; 
@@ -41,6 +48,8 @@ interface Connection {
     database?: string; 
   };
   databases?: Database[]; 
+  schemas?: Schema[]; // Añadido para PostgreSQL
+  tables?: any[]; // Para MySQL y SQLite
   expanded?: boolean; 
   loading?: boolean; 
 }
@@ -55,7 +64,6 @@ type EnvType = 'prod' | 'dev' | 'stage' | 'qa' | 'shared' | 'default';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-  // --- NUEVO: Estado de la barra lateral ---
   isSidebarOpen: boolean = true;
 
   projects: Project[] = [{ name: 'Default', subProjects: [] }];
@@ -94,7 +102,7 @@ export class AppComponent implements OnInit {
   editorOptions = {
     theme: 'vs-dark',
     language: 'sql',
-    automaticLayout: true, // Esto hace que Monaco se ajuste solo cuando la barra se cierra
+    automaticLayout: true,
     fontSize: 14,
     minimap: { enabled: false },
     fixedOverflowWidgets: true,
@@ -138,7 +146,6 @@ export class AppComponent implements OnInit {
     this.addNewTab();
   }
 
-  // --- NUEVO: Función para alternar la barra lateral ---
   toggleSidebar() {
     this.isSidebarOpen = !this.isSidebarOpen;
   }
@@ -149,19 +156,16 @@ export class AppComponent implements OnInit {
 
   get groupedConnections() {
     const filtered = this.filteredConnections;
-    
     const groupsMap = {
       postgresql: { type: 'postgresql', label: 'PostgreSQL', icon: '🐘', connections: [] as any[] },
       mysql: { type: 'mysql', label: 'MySQL', icon: '🐬', connections: [] as any[] },
       sqlite: { type: 'sqlite', label: 'SQLite', icon: '🪶', connections: [] as any[] }
     };
-
     filtered.forEach(c => {
       if (groupsMap[c.type as keyof typeof groupsMap]) {
         groupsMap[c.type as keyof typeof groupsMap].connections.push(c);
       }
     });
-
     return Object.values(groupsMap).filter(g => g.connections.length > 0);
   }
 
@@ -177,6 +181,7 @@ export class AppComponent implements OnInit {
 
   openConnectionContextMenu(conn: any, event: MouseEvent) {
     event.preventDefault(); 
+    event.stopPropagation(); 
     this.contextMenuTarget = conn;
     this.contextMenuOptions = [
       { label: 'Edit Connection', action: 'edit-connection' },
@@ -189,6 +194,8 @@ export class AppComponent implements OnInit {
   }
 
   openTableContextMenu(conn: any, table: any, event: MouseEvent) {
+    event.preventDefault(); 
+    event.stopPropagation(); 
     this.contextMenuTarget = { conn, table };
     this.contextMenuOptions = [
       { label: 'Delete Table', action: 'delete-table' }
@@ -349,7 +356,6 @@ export class AppComponent implements OnInit {
       this.cdr.detectChanges();
       return;
     }
-
     const oldName = project.name;
     const newName = project.name.trim();
 
@@ -427,6 +433,21 @@ export class AppComponent implements OnInit {
     }
   }
 
+  deleteConnectionFromModal() {
+    if (confirm(`Are you sure you want to delete the connection "${this.originalConnName}"?`)) {
+      this.connections = this.connections.filter(c => c.name !== this.originalConnName);
+      localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
+      
+      if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
+        this.activeConnection = null;
+      }
+      
+      this.showNewConnection = false;
+      this.resetNewConn();
+      this.cdr.detectChanges();
+    }
+  }
+
   deleteConnection(conn: any, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
@@ -447,11 +468,51 @@ export class AppComponent implements OnInit {
     this.originalConnName = '';
   }
 
-  setActiveConnection(conn: any) {
+  async setActiveConnection(conn: any) {
     this.activeConnection = conn;
-    if (!conn.tables) this.refreshConnection(conn);
+    if (conn.type === 'postgresql') {
+      if (!conn.schemas) this.refreshSchemas(conn);
+    } else {
+      if (!conn.tables) this.refreshConnection(conn);
+    }
   }
 
+  // NUEVO: Función exclusiva para recuperar Esquemas en PostgreSQL
+  async refreshSchemas(conn: any) {
+    conn.loading = true;
+    try {
+      // Intenta llamar a getSchemas, si el backend no lo tiene, usa 'public' por defecto para evitar errores.
+      const res = await (this.electronService as any).getSchemas 
+        ? await (this.electronService as any).getSchemas(conn) 
+        : { success: true, data: ['public'] };
+      
+      if (res.success) {
+        conn.schemas = res.data.map((s: string) => ({ name: s, tables: null, expanded: false, loading: false }));
+      }
+    } catch (e) {
+      conn.schemas = [{ name: 'public', tables: null, expanded: false, loading: false }];
+    }
+    conn.loading = false;
+    this.cdr.detectChanges();
+  }
+
+  // NUEVO: Función para expandir/colapsar un esquema y cargar sus tablas
+  async toggleSchema(conn: any, schema: any, event: MouseEvent) {
+    event.stopPropagation();
+    schema.expanded = !schema.expanded;
+    if (schema.expanded && !schema.tables) {
+      schema.loading = true;
+      // Actualiza tu backend para que reciba schema.name como 2do parametro si es necesario
+      const res = await this.electronService.getTables(conn, schema.name);
+      schema.loading = false;
+      if (res.success) {
+        schema.tables = res.data.map((t: string) => ({ name: t, schema: schema.name, columns: [], expanded: false }));
+      }
+      this.cdr.detectChanges();
+    }
+  }
+
+  // Modificado para MySQL/SQLite
   async refreshConnection(conn: any) {
     conn.loading = true;
     const res = await this.electronService.getTables(conn);
@@ -467,7 +528,8 @@ export class AppComponent implements OnInit {
     table.expanded = !table.expanded;
     if (table.expanded && table.columns.length === 0) {
       table.loading = true;
-      const res = await this.electronService.getColumns(conn, table.name);
+      // Añade parámetro de schema si tu backend lo necesita para buscar la tabla en PG
+      const res = await this.electronService.getColumns(conn, table.name, table.schema);
       table.loading = false;
       if (res.success) {
         table.columns = res.data;
@@ -479,15 +541,25 @@ export class AppComponent implements OnInit {
   async deleteTable(conn: any, table: any, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    if (!confirm(`Are you sure you want to delete the table "${table.name}" from connection "${conn.name}"? This action cannot be undone.`)) {
+    const fullTableName = table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`;
+    
+    if (!confirm(`Are you sure you want to delete the table ${fullTableName} from connection "${conn.name}"? This action cannot be undone.`)) {
       return;
     }
 
     try {
-      const res = await this.electronService.dbDropTable(conn, table.name);
+      // Necesitas adaptar dbDropTable en backend para recibir table.schema si existe
+      const res = await this.electronService.dbDropTable(conn, table.name, table.schema);
       if (res.success) {
-        conn.tables = conn.tables.filter((t: any) => t.name !== table.name);
-        localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
+        // Remover del frontend correctamente
+        if (conn.type === 'postgresql' && table.schema) {
+          const schema = conn.schemas.find((s: any) => s.name === table.schema);
+          if (schema && schema.tables) {
+             schema.tables = schema.tables.filter((t: any) => t.name !== table.name);
+          }
+        } else {
+          conn.tables = conn.tables.filter((t: any) => t.name !== table.name);
+        }
         this.cdr.detectChanges();
       } else {
         alert(`Failed to delete table: ${res.error}`);
@@ -498,8 +570,11 @@ export class AppComponent implements OnInit {
     }
   }
 
-  quickViewData(table: string) {
-    const sql = `SELECT * FROM ${table} LIMIT 100;`;
+  // Modificado para agrupar tablas de esquemas correctamente en queries
+  quickViewData(table: any) {
+    const fullTableName = table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`;
+    const sql = `SELECT * FROM ${fullTableName} LIMIT 100;`;
+    
     let queryTab = this.tabs[this.activeTabIndex];
     if (!queryTab || queryTab.type !== 'query') {
       this.addNewTab();
@@ -572,7 +647,8 @@ export class AppComponent implements OnInit {
     } finally {
       this.executing = false;
       this.cdr.detectChanges();
-    }  }
+    }  
+  }
 
   updateColumnDefs(data: any[]) {
     if (!data || data.length === 0) {
@@ -583,21 +659,5 @@ export class AppComponent implements OnInit {
       field: key,
       headerName: key.toUpperCase()
     }));
-  }
-
-  // NUEVA FUNCIÓN: Para eliminar desde el modal de edición
-  deleteConnectionFromModal() {
-    if (confirm(`Are you sure you want to delete the connection "${this.originalConnName}"?`)) {
-      this.connections = this.connections.filter(c => c.name !== this.originalConnName);
-      localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
-      
-      if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
-        this.activeConnection = null;
-      }
-      
-      this.showNewConnection = false;
-      this.resetNewConn();
-      this.cdr.detectChanges();
-    }
   }
 }

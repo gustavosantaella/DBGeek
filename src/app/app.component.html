@@ -1,6 +1,5 @@
 <div class="app-container" [class]="activeConnection?.env || 'default'" (click)="closeContextMenu()">
   
-  <!-- BARRA DE TÍTULO MEJORADA -->
   <div class="title-bar">
     <button class="sidebar-toggle-btn" (click)="toggleSidebar()" title="Toggle Sidebar">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/></svg>
@@ -50,34 +49,54 @@
                    [class.active]="activeConnection === conn"
                    [class]="conn.env"
                    (click)="setActiveConnection(conn)"
-                   (contextmenu)="$event.preventDefault(); openConnectionContextMenu(conn, $event)">
+                   (contextmenu)="openConnectionContextMenu(conn, $event)">
                 <span class="conn-icon"></span>
                 <span class="conn-name">{{conn.name}}</span>
                 <div class="item-actions">
                   <span class="spinner" *ngIf="conn.loading"></span>
-                  <!-- Aquí eliminamos el botón de 'X' flotante -->
                 </div>
               </div>
               
-              <div class="table-list" *ngIf="activeConnection === conn && conn.tables">
-                <div *ngFor="let table of conn.tables" class="table-item-container">
-                  <div class="table-item" (click)="toggleTable(conn, table, $event)" (contextmenu)="$event.preventDefault(); openTableContextMenu(conn, table, $event)">
-                    <span class="chevron" [class.expanded]="table.expanded">▸</span>
-                    <span class="table-icon"></span>
-                    <span class="table-name">{{table.name}}</span>
-                    <span class="spinner mini" *ngIf="table.loading"></span>
-                    <button class="view-btn" (click)="quickViewData(table.name); $event.stopPropagation()">View</button>
-                  </div>
-                  
-                  <div class="column-list" *ngIf="table.expanded">
-                    <div *ngFor="let col of table.columns" class="column-item">
-                      <span class="col-icon"></span>
-                      <span class="col-name">{{col.column_name}}</span>
-                      <span class="col-type">{{col.data_type}}</span>
+              <ng-template #tablesTemplate let-tables="tables" let-parentConn="conn">
+                <div class="table-list" *ngIf="tables">
+                  <div *ngFor="let table of tables" class="table-item-container">
+                    <div class="table-item" (click)="toggleTable(parentConn, table, $event)" (contextmenu)="openTableContextMenu(parentConn, table, $event)">
+                      <span class="chevron" [class.expanded]="table.expanded">▸</span>
+                      <span class="table-icon"></span>
+                      <span class="table-name">{{table.name}}</span>
+                      <span class="spinner mini" *ngIf="table.loading"></span>
+                      <button class="view-btn" (click)="quickViewData(table); $event.stopPropagation()">View</button>
+                    </div>
+                    
+                    <div class="column-list" *ngIf="table.expanded">
+                      <div *ngFor="let col of table.columns" class="column-item">
+                        <span class="col-icon"></span>
+                        <span class="col-name">{{col.column_name}}</span>
+                        <span class="col-type">{{col.data_type}}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </ng-template>
+
+              <div class="schema-list" *ngIf="activeConnection === conn && conn.type === 'postgresql' && conn.schemas">
+                <div *ngFor="let schema of conn.schemas">
+                  <div class="schema-item" (click)="toggleSchema(conn, schema, $event)">
+                    <span class="chevron" [class.expanded]="schema.expanded">▸</span>
+                    <span class="schema-icon">📂</span>
+                    <span class="schema-name">{{schema.name}}</span>
+                    <span class="spinner mini" *ngIf="schema.loading"></span>
+                  </div>
+                  <ng-container *ngIf="schema.expanded">
+                     <ng-container *ngTemplateOutlet="tablesTemplate; context: { tables: schema.tables, conn: conn }"></ng-container>
+                  </ng-container>
+                </div>
               </div>
+
+              <ng-container *ngIf="activeConnection === conn && conn.type !== 'postgresql' && conn.tables">
+                <ng-container *ngTemplateOutlet="tablesTemplate; context: { tables: conn.tables, conn: conn }"></ng-container>
+              </ng-container>
+
             </div>
           </div>
         </div>
@@ -175,7 +194,6 @@
     </main>
   </div>
 
-  <!-- MODAL -->
   <div class="modal-overlay" *ngIf="showNewConnection">
     <div class="modal-card glass" (click)="$event.stopPropagation()">
       <h2>{{isEditingConnection ? 'Edit Connection' : 'New Connection'}}</h2>
@@ -190,26 +208,19 @@
         <app-input label="Database" [(ngModel)]="newConn.connection.database" [fullWidth]="true"></app-input>
       </div>
       
-      <!-- BOTONES DEL MODAL ACTUALIZADOS -->
       <div class="modal-actions" style="display: flex; gap: 12px; margin-top: 24px;">
-        
         <button class="danger-btn" *ngIf="isEditingConnection" (click)="deleteConnectionFromModal()">
           Delete Connection
         </button>
-        
-        <!-- Este div empuja los siguientes botones hacia la derecha -->
         <div style="flex: 1;"></div> 
-
         <button class="secondary-btn" (click)="showNewConnection = false">Cancel</button>
         <button class="run-btn" (click)="testAndAddConnection()" [disabled]="isConnecting">
           {{isConnecting ? 'Connecting...' : (isEditingConnection ? 'Save Changes' : 'Connect')}}
         </button>
       </div>
-
     </div>
   </div>
 
-  <!-- CONTEXT MENU -->
   <div *ngIf="showContextMenu" 
        class="modal-overlay" 
        style="background: transparent; z-index: 9998;" 

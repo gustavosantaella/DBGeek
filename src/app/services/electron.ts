@@ -24,18 +24,39 @@ export class ElectronService {
     return await this.electronAPI.dbQuery(config, query);
   }
 
-  async getTables(config: any): Promise<any> {
+  async getTables(config: any, schema?: string): Promise<any> {
     if (!this.electronAPI) return { success: false, error: 'Electron not available' };
-    return await this.electronAPI.dbGetTables(config);
+    return await this.electronAPI.dbGetTables(config, schema || null);
   }
 
-  async getColumns(config: any, table: string): Promise<any> {
+  async getColumns(config: any, table: string, schema?: string): Promise<any> {
     if (!this.electronAPI) return { success: false, error: 'Electron not available' };
-    return await this.electronAPI.dbGetColumns(config, table);
+    return await this.electronAPI.dbGetColumns(config, table, schema || null);
   }
 
-  async dbDropTable(config: any, table: string): Promise<any> {
+  async dbDropTable(config: any, table: string, schema?: string): Promise<any> {
     if (!this.electronAPI) return { success: false, error: 'Electron not available' };
     return await this.electronAPI.dbDropTable(config, table);
   }
+
+  async dbDropDatabase(config: any, database: string): Promise<any> {
+    if (!this.electronAPI) return { success: false, error: 'Electron not available' };
+    return await this.electronAPI.dbDropDatabase(config, database);
+  }
+
+  async dbCreateDatabase(config: any, database: string): Promise<any> {
+    if (!this.electronAPI) return { success: false, error: 'Electron not available' };
+    return await this.electronAPI.dbCreateDatabase(config, database);
+  }
+
+  async dbGetDatabases(config: any): Promise<any> {
+    if (!this.electronAPI) return { success: false, error: 'Electron not available' };
+    return await this.electronAPI.dbGetDatabases(config);
+  }
+
+  async getSchemas(conn: any): Promise<any> {
+    if (!this.electronAPI) return { success: false, error: 'Electron not available' };
+    return await this.electronAPI.dbGetSchemas(conn);
+  }
+
 }
