@@ -48,8 +48,8 @@ interface Connection {
     database?: string; 
   };
   databases?: Database[]; 
-  schemas?: Schema[]; // Añadido para PostgreSQL
-  tables?: any[]; // Para MySQL y SQLite
+  schemas?: Schema[]; 
+  tables?: any[]; 
   expanded?: boolean; 
   loading?: boolean; 
 }
@@ -87,10 +87,11 @@ export class AppComponent implements OnInit {
     connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
   };
 
+  // CAMBIO: Por defecto todos los grupos de DB inician colapsados (false)
   groupExpandedState: { [key: string]: boolean } = {
-    postgresql: true,
-    mysql: true,
-    sqlite: true
+    postgresql: false,
+    mysql: false,
+    sqlite: false
   };
 
   tabs: Tab[] = [];
@@ -253,20 +254,21 @@ export class AppComponent implements OnInit {
         if (Array.isArray(parsedProjects) && parsedProjects.length > 0) {
           const ensureExpanded = (projs: Project[]) => {
             projs.forEach(p => {
-              if (p.isExpanded === undefined) p.isExpanded = true;
+              // CAMBIO: Inicia en false para que el Project Manager esté colapsado
+              if (p.isExpanded === undefined) p.isExpanded = false;
               if (p.subProjects) ensureExpanded(p.subProjects);
             });
           };
           ensureExpanded(parsedProjects);
           this.projects = parsedProjects;
         } else {
-          this.projects = [{ name: 'Default', subProjects: [], isExpanded: true }];
+          this.projects = [{ name: 'Default', subProjects: [], isExpanded: false }];
         }
       } catch (e) {
-        this.projects = [{ name: 'Default', subProjects: [], isExpanded: true }];
+        this.projects = [{ name: 'Default', subProjects: [], isExpanded: false }];
       }
     } else {
-      this.projects = [{ name: 'Default', subProjects: [], isExpanded: true }];
+      this.projects = [{ name: 'Default', subProjects: [], isExpanded: false }];
     }
   }
 
@@ -287,7 +289,8 @@ export class AppComponent implements OnInit {
 
   addProject() {
     if (!this.newProjectName.trim()) return;
-    const newP: Project = { name: this.newProjectName.trim(), subProjects: [], isExpanded: true };
+    // CAMBIO: Al crear uno nuevo, inícialo colapsado (false)
+    const newP: Project = { name: this.newProjectName.trim(), subProjects: [], isExpanded: false };
     
     if (this.selectedParentProject === 'root') {
       this.projects.push(newP);
@@ -477,16 +480,15 @@ export class AppComponent implements OnInit {
     }
   }
 
-  // NUEVO: Función exclusiva para recuperar Esquemas en PostgreSQL
   async refreshSchemas(conn: any) {
     conn.loading = true;
     try {
-      // Intenta llamar a getSchemas, si el backend no lo tiene, usa 'public' por defecto para evitar errores.
       const res = await (this.electronService as any).getSchemas 
         ? await (this.electronService as any).getSchemas(conn) 
         : { success: true, data: ['public'] };
       
       if (res.success) {
+        // CAMBIO: Las carpetas de schemas también inician colapsadas (expanded: false)
         conn.schemas = res.data.map((s: string) => ({ name: s, tables: null, expanded: false, loading: false }));
       }
     } catch (e) {
@@ -496,13 +498,11 @@ export class AppComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  // NUEVO: Función para expandir/colapsar un esquema y cargar sus tablas
   async toggleSchema(conn: any, schema: any, event: MouseEvent) {
     event.stopPropagation();
     schema.expanded = !schema.expanded;
     if (schema.expanded && !schema.tables) {
       schema.loading = true;
-      // Actualiza tu backend para que reciba schema.name como 2do parametro si es necesario
       const res = await this.electronService.getTables(conn, schema.name);
       schema.loading = false;
       if (res.success) {
@@ -512,12 +512,12 @@ export class AppComponent implements OnInit {
     }
   }
 
-  // Modificado para MySQL/SQLite
   async refreshConnection(conn: any) {
     conn.loading = true;
     const res = await this.electronService.getTables(conn);
     conn.loading = false;
     if (res.success) {
+      // CAMBIO: Las tablas inician colapsadas
       conn.tables = res.data.map((t: string) => ({ name: t, columns: [], expanded: false }));
     }
     this.cdr.detectChanges();
@@ -528,7 +528,6 @@ export class AppComponent implements OnInit {
     table.expanded = !table.expanded;
     if (table.expanded && table.columns.length === 0) {
       table.loading = true;
-      // Añade parámetro de schema si tu backend lo necesita para buscar la tabla en PG
       const res = await this.electronService.getColumns(conn, table.name, table.schema);
       table.loading = false;
       if (res.success) {
@@ -548,10 +547,8 @@ export class AppComponent implements OnInit {
     }
 
     try {
-      // Necesitas adaptar dbDropTable en backend para recibir table.schema si existe
       const res = await this.electronService.dbDropTable(conn, table.name, table.schema);
       if (res.success) {
-        // Remover del frontend correctamente
         if (conn.type === 'postgresql' && table.schema) {
           const schema = conn.schemas.find((s: any) => s.name === table.schema);
           if (schema && schema.tables) {
@@ -570,7 +567,6 @@ export class AppComponent implements OnInit {
     }
   }
 
-  // Modificado para agrupar tablas de esquemas correctamente en queries
   quickViewData(table: any) {
     const fullTableName = table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`;
     const sql = `SELECT * FROM ${fullTableName} LIMIT 100;`;
