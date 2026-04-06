@@ -55,6 +55,9 @@ type EnvType = 'prod' | 'dev' | 'stage' | 'qa' | 'shared' | 'default';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
+  // --- NUEVO: Estado de la barra lateral ---
+  isSidebarOpen: boolean = true;
+
   projects: Project[] = [{ name: 'Default', subProjects: [] }];
   activeProjectName: string = 'Default';
   newProjectName: string = '';
@@ -76,7 +79,6 @@ export class AppComponent implements OnInit {
     connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
   };
 
-  // --- NUEVO: Estado de los grupos de bases de datos ---
   groupExpandedState: { [key: string]: boolean } = {
     postgresql: true,
     mysql: true,
@@ -92,7 +94,7 @@ export class AppComponent implements OnInit {
   editorOptions = {
     theme: 'vs-dark',
     language: 'sql',
-    automaticLayout: true,
+    automaticLayout: true, // Esto hace que Monaco se ajuste solo cuando la barra se cierra
     fontSize: 14,
     minimap: { enabled: false },
     fixedOverflowWidgets: true,
@@ -136,12 +138,15 @@ export class AppComponent implements OnInit {
     this.addNewTab();
   }
 
-  // --- NUEVO: Alternar estado de los grupos ---
+  // --- NUEVO: Función para alternar la barra lateral ---
+  toggleSidebar() {
+    this.isSidebarOpen = !this.isSidebarOpen;
+  }
+
   toggleGroup(type: string) {
     this.groupExpandedState[type] = !this.groupExpandedState[type];
   }
 
-  // --- NUEVO: Agrupar conexiones por tipo ---
   get groupedConnections() {
     const filtered = this.filteredConnections;
     
@@ -578,5 +583,21 @@ export class AppComponent implements OnInit {
       field: key,
       headerName: key.toUpperCase()
     }));
+  }
+
+  // NUEVA FUNCIÓN: Para eliminar desde el modal de edición
+  deleteConnectionFromModal() {
+    if (confirm(`Are you sure you want to delete the connection "${this.originalConnName}"?`)) {
+      this.connections = this.connections.filter(c => c.name !== this.originalConnName);
+      localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
+      
+      if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
+        this.activeConnection = null;
+      }
+      
+      this.showNewConnection = false;
+      this.resetNewConn();
+      this.cdr.detectChanges();
+    }
   }
 }

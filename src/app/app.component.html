@@ -1,14 +1,20 @@
 <div class="app-container" [class]="activeConnection?.env || 'default'" (click)="closeContextMenu()">
+  
+  <!-- BARRA DE TÍTULO MEJORADA -->
   <div class="title-bar">
+    <button class="sidebar-toggle-btn" (click)="toggleSidebar()" title="Toggle Sidebar">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/></svg>
+    </button>
+    
     <div class="app-logo">
-      <span class="logo-icon"></span>
+      <span class="logo-icon">🗄️</span>
       <span class="logo-text">DBGeek</span>
       <span class="env-badge" *ngIf="activeConnection?.env !== 'default'">{{activeConnection?.env | uppercase}}</span>
     </div>
   </div>
 
   <div class="main-layout">
-    <aside class="sidebar glass">
+    <aside class="sidebar glass" [class.collapsed]="!isSidebarOpen">
       <div class="sidebar-header">
         <div class="project-selector">
           <select [(ngModel)]="activeProjectName">
@@ -18,20 +24,16 @@
         </div>
         <div class="header-actions">
           <h3>Connections</h3>
-          <button class="add-btn" (click)="resetNewConn(); showNewConnection = true">+</button>
+          <button class="add-btn icon-btn" (click)="resetNewConn(); showNewConnection = true">+</button>
         </div>
       </div>
 
       <div class="connection-list">
-        
         <div class="empty-state" *ngIf="groupedConnections.length === 0">
           No connections in this project.
         </div>
 
-        <!-- Bucle por Grupo de Base de Datos -->
         <div *ngFor="let group of groupedConnections" class="db-type-section">
-          
-          <!-- Encabezado del Grupo (Ej: PostgreSQL) -->
           <div class="db-type-header" 
                [class.expanded]="groupExpandedState[group.type]"
                (click)="toggleGroup(group.type)">
@@ -41,7 +43,6 @@
             <span class="badge">{{ group.connections.length }}</span>
           </div>
 
-          <!-- Contenido del Grupo (Las conexiones reales) -->
           <div class="db-type-content" *ngIf="groupExpandedState[group.type]">
             <div *ngFor="let conn of group.connections" class="connection-group">
               
@@ -49,18 +50,18 @@
                    [class.active]="activeConnection === conn"
                    [class]="conn.env"
                    (click)="setActiveConnection(conn)"
-                   (contextmenu)="console.log('Context menu event on connection-item'); $event.preventDefault(); openConnectionContextMenu(conn, $event)">
+                   (contextmenu)="$event.preventDefault(); openConnectionContextMenu(conn, $event)">
                 <span class="conn-icon"></span>
                 <span class="conn-name">{{conn.name}}</span>
                 <div class="item-actions">
                   <span class="spinner" *ngIf="conn.loading"></span>
-                  <button class="delete-icon" (click)="deleteConnection(conn, $event)">×</button>
+                  <!-- Aquí eliminamos el botón de 'X' flotante -->
                 </div>
               </div>
               
               <div class="table-list" *ngIf="activeConnection === conn && conn.tables">
                 <div *ngFor="let table of conn.tables" class="table-item-container">
-                  <div class="table-item" (click)="toggleTable(conn, table, $event)" (contextmenu)="console.log('Context menu event on table-item'); $event.preventDefault(); openTableContextMenu(conn, table, $event)">
+                  <div class="table-item" (click)="toggleTable(conn, table, $event)" (contextmenu)="$event.preventDefault(); openTableContextMenu(conn, table, $event)">
                     <span class="chevron" [class.expanded]="table.expanded">▸</span>
                     <span class="table-icon"></span>
                     <span class="table-name">{{table.name}}</span>
@@ -80,7 +81,6 @@
             </div>
           </div>
         </div>
-
       </div>
     </aside>
 
@@ -90,11 +90,11 @@
              class="tab-item" 
              [class.active]="activeTabIndex === i"
              (click)="activeTabIndex = i">
-          <span class="tab-icon">{{tab.type === 'query' ? '' : '📁'}}</span>
+          <span class="tab-icon">{{tab.type === 'query' ? '📝' : '📁'}}</span>
           <span class="tab-title">{{tab.title}}</span>
           <span class="tab-close" (click)="closeTab(i, $event)">×</span>
         </div>
-        <button class="new-tab-btn" (click)="addNewTab()">+</button>
+        <button class="new-tab-btn icon-btn" (click)="addNewTab()">+</button>
       </div>
 
       <div class="tab-content" *ngIf="tabs.length > 0">
@@ -102,7 +102,9 @@
           <div class="editor-container glass">
             <div class="editor-actions">
               <button class="run-btn" (click)="executeQuery()" [disabled]="executing">
-                {{executing ? '⌛ Running...' : '▶ Run Selection'}}
+                <svg *ngIf="!executing" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.25 3.5l8.5 4.5-8.5 4.5v-9z"/></svg>
+                <span class="spinner mini" *ngIf="executing"></span>
+                {{executing ? 'Running...' : 'Run Selection'}}
               </button>
               <span class="exec-info" *ngIf="lastExecutionTime">{{lastExecutionTime}}ms</span>
             </div>
@@ -130,7 +132,7 @@
             <div class="add-project-form">
               <app-select label="Parent Project" [(ngModel)]="selectedParentProject" [options]="[{label: 'None', value: ''}, {label: 'Root', value: 'root'}, ...projectListFlat]"></app-select>
               <app-input label="Project Name" [(ngModel)]="newProjectName" (keyup.enter)="addProject()"></app-input>
-              <button (click)="addProject()">Create Project</button>
+              <button class="run-btn" (click)="addProject()">Create Project</button>
             </div>
 
             <div class="project-list-display">
@@ -173,6 +175,7 @@
     </main>
   </div>
 
+  <!-- MODAL -->
   <div class="modal-overlay" *ngIf="showNewConnection">
     <div class="modal-card glass" (click)="$event.stopPropagation()">
       <h2>{{isEditingConnection ? 'Edit Connection' : 'New Connection'}}</h2>
@@ -186,16 +189,27 @@
         <app-input label="Password" type="password" [(ngModel)]="newConn.connection.password"></app-input>
         <app-input label="Database" [(ngModel)]="newConn.connection.database" [fullWidth]="true"></app-input>
       </div>
-      <div class="modal-actions">
+      
+      <!-- BOTONES DEL MODAL ACTUALIZADOS -->
+      <div class="modal-actions" style="display: flex; gap: 12px; margin-top: 24px;">
+        
+        <button class="danger-btn" *ngIf="isEditingConnection" (click)="deleteConnectionFromModal()">
+          Delete Connection
+        </button>
+        
+        <!-- Este div empuja los siguientes botones hacia la derecha -->
+        <div style="flex: 1;"></div> 
+
         <button class="secondary-btn" (click)="showNewConnection = false">Cancel</button>
-        <button (click)="testAndAddConnection()" [disabled]="isConnecting">
-          {{isConnecting ? 'Connecting...' : 'Connect'}}
+        <button class="run-btn" (click)="testAndAddConnection()" [disabled]="isConnecting">
+          {{isConnecting ? 'Connecting...' : (isEditingConnection ? 'Save Changes' : 'Connect')}}
         </button>
       </div>
+
     </div>
   </div>
 
-  <!-- Capa invisible para cerrar el menú si haces clic fuera -->
+  <!-- CONTEXT MENU -->
   <div *ngIf="showContextMenu" 
        class="modal-overlay" 
        style="background: transparent; z-index: 9998;" 
