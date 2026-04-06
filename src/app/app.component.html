@@ -171,14 +171,27 @@
     </div>
   </div>
 
-  <div *ngIf="showContextMenu" class="context-menu" 
+  <!-- =========================================
+       Context Menu (Right Click) Mejorado
+       ========================================= -->
+  <!-- Capa invisible para cerrar el menú si haces clic fuera -->
+  <div *ngIf="showContextMenu" 
+       class="modal-overlay" 
+       style="background: transparent; z-index: 9998;" 
+       (click)="closeContextMenu()" 
+       (contextmenu)="$event.preventDefault(); closeContextMenu()">
+  </div>
+
+  <div class="context-menu" 
+       *ngIf="showContextMenu" 
        [style.left.px]="contextMenuPositionX" 
-       [style.top.px]="contextMenuPositionY"
-       (click)="$event.stopPropagation()">
-    <div *ngFor="let option of contextMenuOptions" 
-         class="context-menu-item" 
-         (click)="handleContextMenuItem(option.action); $event.stopPropagation()">
-      {{option.label}}
-    </div>
+       [style.top.px]="contextMenuPositionY">
+    <ul>
+      <li *ngFor="let option of contextMenuOptions" 
+          (click)="handleContextMenuItem(option.action)"
+          [ngClass]="{'danger-action': option.action.includes('delete')}">
+        {{ option.label }}
+      </li>
+    </ul>
   </div>
 </div>

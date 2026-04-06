@@ -524,3 +524,65 @@
     margin-top: 32px;
   }
 }
+
+/* =========================================
+   Context Menu (Right Click) Styling
+   ========================================= */
+.context-menu {
+  position: fixed; /* Usar fixed evita que se corte con contenedores con overflow: hidden */
+  background: var(--sidebar-bg, #1e1e1e); /* Usa tu variable de fondo, con un fallback oscuro */
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 6px 0;
+  min-width: 180px;
+  z-index: 9999; /* Tiene que estar sobre cualquier modal (2000) o barra superior (1000) */
+  backdrop-filter: blur(10px); /* Le da un toque "glassmorphism" elegante */
+  
+  /* Animación suave al aparecer */
+  animation: contextMenuFadeIn 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-primary, #e5e5e5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.1s ease, color 0.1s ease;
+
+      /* Hover normal */
+      &:hover {
+        background: rgba(56, 189, 248, 0.15); /* Usa tu acento de color azul */
+        color: var(--accent-color, #38bdf8);
+      }
+
+      /* Hover para botones de eliminar (Danger) */
+      &.danger-action {
+        color: #f87171;
+        &:hover {
+          background: rgba(239, 68, 68, 0.15);
+          color: #ef4444;
+        }
+      }
+    }
+  }
+}
+
+/* Keyframe para que el menú no aparezca de golpe */
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
