@@ -64,7 +64,9 @@ export class AppComponent implements OnInit {
   activeConnection: any = null;
   showNewConnection = false;
   isConnecting = false;
+  
   isEditingConnection: boolean = false;
+  originalConnName: string = ''; // Guardamos el nombre original al editar
 
   newConn = {
     name: '',
@@ -142,7 +144,7 @@ export class AppComponent implements OnInit {
     console.log("right click", conn)
     this.contextMenuTarget = conn;
     this.contextMenuOptions = [
-      { label: 'Edit Connection', action: 'edit-connection' }, // Added Edit option
+      { label: 'Edit Connection', action: 'edit-connection' },
       { label: 'Delete Connection', action: 'delete-connection' }
     ];
     this.contextMenuPositionX = event.clientX;
@@ -169,11 +171,13 @@ export class AppComponent implements OnInit {
     console.log('handleContextMenuItem called.');
     console.log('handleContextMenuItem invoked with action:', action);
     console.log(this.contextMenuTarget, action === 'delete-connection');
+    
+    // Ejecutamos la acción primero
     if (this.contextMenuTarget) {
       if (action === 'delete-connection') {
         console.log('delete-connection action selected.');
-        this.deleteConnection(this.contextMenuTarget, new MouseEvent('click')); // Re-use existing delete logic
-      } else if (action === 'edit-connection') { // Added Edit handler
+        this.deleteConnection(this.contextMenuTarget, new MouseEvent('click')); 
+      } else if (action === 'edit-connection') { 
         this.openEditConnectionModal(this.contextMenuTarget);
       }
       else if (action === 'delete-table') {
@@ -181,6 +185,8 @@ export class AppComponent implements OnInit {
         this.deleteTable(conn, table, new MouseEvent('click'));
       }
     }
+
+    // Cerramos el menú al final para que contextMenuTarget no sea null durante la ejecución
     this.closeContextMenu();
   }
 
@@ -371,8 +377,16 @@ export class AppComponent implements OnInit {
 
   openEditConnectionModal(conn: Connection) {
     this.isEditingConnection = true;
-    // Deep copy the connection to avoid modifying the original until saved
+    this.originalConnName = conn.name; // Guardamos el nombre original
+    
+    // Hacemos la copia profunda
     this.newConn = JSON.parse(JSON.stringify(conn)); 
+    
+    // Seguridad: Asegurarnos de que el objeto anidado exista, sino Angular bloquea los inputs
+    if (!this.newConn.connection) {
+      this.newConn.connection = { host: 'localhost', user: 'postgres', password: '', database: 'postgres' };
+    }
+
     this.showNewConnection = true;
     this.cdr.detectChanges();
   }
@@ -383,14 +397,19 @@ export class AppComponent implements OnInit {
       const res = await this.electronService.connect(this.newConn);
       if (res.success) {
         if (this.isEditingConnection) {
-          // Find and update the existing connection
-          const index = this.connections.findIndex(c => c.name === this.newConn.name);
+          // Buscamos la conexión usando el nombre original, no el modificado
+          const index = this.connections.findIndex(c => c.name === this.originalConnName);
           if (index !== -1) {
             this.connections[index] = JSON.parse(JSON.stringify(this.newConn));
+            
+            // Si la conexión editada es la que está activa, la actualizamos también
+            if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
+              this.activeConnection = this.connections[index];
+            }
           }
-          this.isEditingConnection = false; // Reset flag after editing
+          this.isEditingConnection = false;
         } else {
-          // Add new connection
+          // Agregar nueva conexión
           this.connections.push(JSON.parse(JSON.stringify(this.newConn)));
         }
         localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
@@ -402,6 +421,7 @@ export class AppComponent implements OnInit {
       }
     } finally {
       this.isConnecting = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -428,6 +448,7 @@ export class AppComponent implements OnInit {
       connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
     };
     this.isEditingConnection = false; // Reset edit flag
+    this.originalConnName = '';
   }
 
   setActiveConnection(conn: any) {
