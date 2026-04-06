@@ -24,9 +24,9 @@ interface Tab {
 
 interface Database {
   name: string;
-  tables?: any[]; // Tables within this specific database
-  expanded?: boolean; // For UI expansion
-  loading?: boolean; // For UI loading state
+  tables?: any[]; 
+  expanded?: boolean; 
+  loading?: boolean; 
 }
 
 interface Connection {
@@ -38,11 +38,11 @@ interface Connection {
     host?: string;
     user?: string;
     password?: string;
-    database?: string; // Initial database to connect to, or default
+    database?: string; 
   };
-  databases?: Database[]; // List of databases available under this connection
-  expanded?: boolean; // For UI expansion
-  loading?: boolean; // For UI loading state
+  databases?: Database[]; 
+  expanded?: boolean; 
+  loading?: boolean; 
 }
 
 type EnvType = 'prod' | 'dev' | 'stage' | 'qa' | 'shared' | 'default';
@@ -66,7 +66,7 @@ export class AppComponent implements OnInit {
   isConnecting = false;
   
   isEditingConnection: boolean = false;
-  originalConnName: string = ''; // Guardamos el nombre original al editar
+  originalConnName: string = ''; 
 
   newConn = {
     name: '',
@@ -76,9 +76,16 @@ export class AppComponent implements OnInit {
     connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
   };
 
+  // --- NUEVO: Estado de los grupos de bases de datos ---
+  groupExpandedState: { [key: string]: boolean } = {
+    postgresql: true,
+    mysql: true,
+    sqlite: true
+  };
+
   tabs: Tab[] = [];
   activeTabIndex = -1;
-  console: Console = console; // Expose console to template for debugging
+  console: Console = console; 
   tabCounter = 0;
 
   private editor: any;
@@ -115,12 +122,11 @@ export class AppComponent implements OnInit {
     { label: 'Shared', value: 'shared' }
   ];
 
-  // Context Menu Properties
   showContextMenu: boolean = false;
   contextMenuPositionX: number = 0;
   contextMenuPositionY: number = 0;
   contextMenuOptions: { label: string, action: string }[] = [];
-  contextMenuTarget: any = null; // Will hold the project, connection, or table object
+  contextMenuTarget: any = null; 
 
   constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef) {}
 
@@ -130,18 +136,42 @@ export class AppComponent implements OnInit {
     this.addNewTab();
   }
 
+  // --- NUEVO: Alternar estado de los grupos ---
+  toggleGroup(type: string) {
+    this.groupExpandedState[type] = !this.groupExpandedState[type];
+  }
+
+  // --- NUEVO: Agrupar conexiones por tipo ---
+  get groupedConnections() {
+    const filtered = this.filteredConnections;
+    
+    const groupsMap = {
+      postgresql: { type: 'postgresql', label: 'PostgreSQL', icon: '🐘', connections: [] as any[] },
+      mysql: { type: 'mysql', label: 'MySQL', icon: '🐬', connections: [] as any[] },
+      sqlite: { type: 'sqlite', label: 'SQLite', icon: '🪶', connections: [] as any[] }
+    };
+
+    filtered.forEach(c => {
+      if (groupsMap[c.type as keyof typeof groupsMap]) {
+        groupsMap[c.type as keyof typeof groupsMap].connections.push(c);
+      }
+    });
+
+    return Object.values(groupsMap).filter(g => g.connections.length > 0);
+  }
+
+  get filteredConnections() {
+    return this.connections.filter(c => c.project === this.activeProjectName);
+  }
+
   closeContextMenu() {
-    console.log('Closing context menu.');
     this.showContextMenu = false;
     this.contextMenuTarget = null;
     this.cdr.detectChanges();
   }
 
   openConnectionContextMenu(conn: any, event: MouseEvent) {
-    console.log('openConnectionContextMenu called.');
-    console.log('Opening connection context menu for:', conn.name);
-    event.preventDefault(); // Prevent default browser context menu
-    console.log("right click", conn)
+    event.preventDefault(); 
     this.contextMenuTarget = conn;
     this.contextMenuOptions = [
       { label: 'Edit Connection', action: 'edit-connection' },
@@ -154,9 +184,6 @@ export class AppComponent implements OnInit {
   }
 
   openTableContextMenu(conn: any, table: any, event: MouseEvent) {
-    console.log('openTableContextMenu called.');
-    console.log('Opening table context menu for:', conn.name, '-', table.name);
-    // event.preventDefault(); // Prevent default browser context menu
     this.contextMenuTarget = { conn, table };
     this.contextMenuOptions = [
       { label: 'Delete Table', action: 'delete-table' }
@@ -168,14 +195,8 @@ export class AppComponent implements OnInit {
   }
 
   handleContextMenuItem(action: string) {
-    console.log('handleContextMenuItem called.');
-    console.log('handleContextMenuItem invoked with action:', action);
-    console.log(this.contextMenuTarget, action === 'delete-connection');
-    
-    // Ejecutamos la acción primero
     if (this.contextMenuTarget) {
       if (action === 'delete-connection') {
-        console.log('delete-connection action selected.');
         this.deleteConnection(this.contextMenuTarget, new MouseEvent('click')); 
       } else if (action === 'edit-connection') { 
         this.openEditConnectionModal(this.contextMenuTarget);
@@ -185,15 +206,11 @@ export class AppComponent implements OnInit {
         this.deleteTable(conn, table, new MouseEvent('click'));
       }
     }
-
-    // Cerramos el menú al final para que contextMenuTarget no sea null durante la ejecución
     this.closeContextMenu();
   }
 
   onEditorInit(editor: any) {
     this.editor = editor;
-    
-    // SQL Keyword Auto-Uppercase
     editor.onDidChangeModelContent(() => {
       const model = editor.getModel();
       const value = model.getValue();
@@ -234,7 +251,6 @@ export class AppComponent implements OnInit {
           this.projects = [{ name: 'Default', subProjects: [], isExpanded: true }];
         }
       } catch (e) {
-        console.error("Error parsing saved projects from localStorage:", e);
         this.projects = [{ name: 'Default', subProjects: [], isExpanded: true }];
       }
     } else {
@@ -300,16 +316,12 @@ export class AppComponent implements OnInit {
     };
     collectProjects(projectToDelete);
 
-    // Remove connections associated with deleted projects
     this.connections = this.connections.filter(conn => !projectsToRemove.includes(conn.project));
     localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
 
-    // Remove project from the main list or sub-project list
     const removeProjectRecursive = (projs: Project[]): Project[] => {
       return projs.filter(p => {
-        if (p.name === projectToDelete.name) {
-          return false; // This project is to be removed
-        }
+        if (p.name === projectToDelete.name) return false; 
         if (p.subProjects) {
           p.subProjects = removeProjectRecursive(p.subProjects);
         }
@@ -327,7 +339,6 @@ export class AppComponent implements OnInit {
   saveProjectName(project: Project) {
     if (project.name.trim() === '') {
       alert('Project name cannot be empty.');
-      // Revert to original name if empty
       this.loadPersistedData(); 
       project.isEditing = false;
       this.cdr.detectChanges();
@@ -337,29 +348,24 @@ export class AppComponent implements OnInit {
     const oldName = project.name;
     const newName = project.name.trim();
 
-    // Check for duplicate names at the same level (simplistic check)
     const isDuplicate = (projs: Project[], currentProject: Project, name: string): boolean => {
       return projs.some(p => p !== currentProject && p.name === name);
     };
 
     if (isDuplicate(this.projects, project, newName)) {
       alert(`Project with name "${newName}" already exists.`);
-      this.loadPersistedData(); // Revert to original name
+      this.loadPersistedData(); 
       project.isEditing = false;
       this.cdr.detectChanges();
       return;
     }
 
-    // Update associated connections
     this.connections.forEach(conn => {
       if (conn.project === oldName) {
         conn.project = newName;
       }
     });
     localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
-
-    // Update the project name itself (already updated via ngModel, just need to persist)
-    // No need to find it recursively as 'project' is a direct reference
     localStorage.setItem('dbgeek_projects', JSON.stringify(this.projects));
 
     project.isEditing = false;
@@ -371,18 +377,12 @@ export class AppComponent implements OnInit {
     return this.connections.filter(conn => conn.project === projectName).length;
   }
 
-  get filteredConnections() {
-    return this.connections.filter(c => c.project === this.activeProjectName);
-  }
-
   openEditConnectionModal(conn: Connection) {
     this.isEditingConnection = true;
-    this.originalConnName = conn.name; // Guardamos el nombre original
+    this.originalConnName = conn.name; 
     
-    // Hacemos la copia profunda
     this.newConn = JSON.parse(JSON.stringify(conn)); 
     
-    // Seguridad: Asegurarnos de que el objeto anidado exista, sino Angular bloquea los inputs
     if (!this.newConn.connection) {
       this.newConn.connection = { host: 'localhost', user: 'postgres', password: '', database: 'postgres' };
     }
@@ -397,19 +397,16 @@ export class AppComponent implements OnInit {
       const res = await this.electronService.connect(this.newConn);
       if (res.success) {
         if (this.isEditingConnection) {
-          // Buscamos la conexión usando el nombre original, no el modificado
           const index = this.connections.findIndex(c => c.name === this.originalConnName);
           if (index !== -1) {
             this.connections[index] = JSON.parse(JSON.stringify(this.newConn));
             
-            // Si la conexión editada es la que está activa, la actualizamos también
             if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
               this.activeConnection = this.connections[index];
             }
           }
           this.isEditingConnection = false;
         } else {
-          // Agregar nueva conexión
           this.connections.push(JSON.parse(JSON.stringify(this.newConn)));
         }
         localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
@@ -426,18 +423,12 @@ export class AppComponent implements OnInit {
   }
 
   deleteConnection(conn: any, event: MouseEvent) {
-    this.console.log("delete connection (TESTING)", conn)
-    console.log('deleteConnection called.');
-    console.log('deleteConnection method invoked for:', conn.name);
     event.preventDefault();
     event.stopPropagation();
     if (confirm(`Are you sure you want to delete the connection "${conn.name}"?`)) {
-      console.log('Connections before filter:', this.connections);
-      console.log('Connection to delete:', conn);
       this.connections = this.connections.filter(c => c.name !== conn.name);
-      console.log('Connections after filter:', this.connections);
       localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
-      if (this.activeConnection && this.activeConnection.name === conn.name) this.activeConnection = null; // Compare by name
+      if (this.activeConnection && this.activeConnection.name === conn.name) this.activeConnection = null;
       this.cdr.detectChanges();
     }
   }
@@ -447,7 +438,7 @@ export class AppComponent implements OnInit {
       name: '', type: 'postgresql', project: this.activeProjectName, env: 'default',
       connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
     };
-    this.isEditingConnection = false; // Reset edit flag
+    this.isEditingConnection = false; 
     this.originalConnName = '';
   }
 
@@ -490,9 +481,7 @@ export class AppComponent implements OnInit {
     try {
       const res = await this.electronService.dbDropTable(conn, table.name);
       if (res.success) {
-        // Remove the table from the connection's tables array
         conn.tables = conn.tables.filter((t: any) => t.name !== table.name);
-        // Persist connections change to localStorage
         localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
         this.cdr.detectChanges();
       } else {
@@ -545,7 +534,6 @@ export class AppComponent implements OnInit {
 
     let sqlToExecute = activeTab.sql;
     
-    // Execute selection if exists
     if (this.editor && this.editor.getSelection && this.editor.getModel) {
       const selection = this.editor.getSelection();
       const selectedText = this.editor.getModel().getValueInRange(selection);
@@ -556,11 +544,9 @@ export class AppComponent implements OnInit {
 
     if (!sqlToExecute.trim()) return;
 
-    // Ensure it ends with semicolon
     if (!sqlToExecute.trim().endsWith(';')) {
       sqlToExecute = sqlToExecute.trim() + ';';
       if (!this.editor.getSelection().isEmpty()) {
-        // If it was a selection, don't update the whole editor
       } else {
         activeTab.sql = sqlToExecute;
       }

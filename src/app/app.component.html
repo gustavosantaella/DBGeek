@@ -18,45 +18,69 @@
         </div>
         <div class="header-actions">
           <h3>Connections</h3>
-          <button class="add-btn" (click)="showNewConnection = true">+</button>
+          <button class="add-btn" (click)="resetNewConn(); showNewConnection = true">+</button>
         </div>
       </div>
 
       <div class="connection-list">
-        <div *ngFor="let conn of filteredConnections" class="connection-group">
-          <div class="connection-item" 
-               [class.active]="activeConnection === conn"
-               [class]="conn.env"
-               (click)="setActiveConnection(conn)"
-               (contextmenu)="console.log('Context menu event on connection-item'); $event.preventDefault(); openConnectionContextMenu(conn, $event)">
-            <span class="conn-icon"></span>
-            <span class="conn-name">{{conn.name}}</span>
-            <div class="item-actions">
-              <span class="spinner" *ngIf="conn.loading"></span>
-              <button class="delete-icon" (click)="deleteConnection(conn, $event)">×</button>
-            </div>
-          </div>
+        
+        <div class="empty-state" *ngIf="groupedConnections.length === 0">
+          No connections in this project.
+        </div>
+
+        <!-- Bucle por Grupo de Base de Datos -->
+        <div *ngFor="let group of groupedConnections" class="db-type-section">
           
-          <div class="table-list" *ngIf="activeConnection === conn && conn.tables">
-            <div *ngFor="let table of conn.tables" class="table-item-container">
-              <div class="table-item" (click)="toggleTable(conn, table, $event)" (contextmenu)="console.log('Context menu event on table-item'); $event.preventDefault(); openTableContextMenu(conn, table, $event)">
-                <span class="chevron" [class.expanded]="table.expanded">▸</span>
-                <span class="table-icon"></span>
-                <span class="table-name">{{table.name}}</span>
-                <span class="spinner mini" *ngIf="table.loading"></span>
-                <button class="view-btn" (click)="quickViewData(table.name); $event.stopPropagation()">View</button>
+          <!-- Encabezado del Grupo (Ej: PostgreSQL) -->
+          <div class="db-type-header" 
+               [class.expanded]="groupExpandedState[group.type]"
+               (click)="toggleGroup(group.type)">
+            <span class="chevron" [class.expanded]="groupExpandedState[group.type]">▸</span>
+            <span class="db-icon">{{ group.icon }}</span>
+            <span class="db-type-label">{{ group.label }}</span>
+            <span class="badge">{{ group.connections.length }}</span>
+          </div>
+
+          <!-- Contenido del Grupo (Las conexiones reales) -->
+          <div class="db-type-content" *ngIf="groupExpandedState[group.type]">
+            <div *ngFor="let conn of group.connections" class="connection-group">
+              
+              <div class="connection-item" 
+                   [class.active]="activeConnection === conn"
+                   [class]="conn.env"
+                   (click)="setActiveConnection(conn)"
+                   (contextmenu)="console.log('Context menu event on connection-item'); $event.preventDefault(); openConnectionContextMenu(conn, $event)">
+                <span class="conn-icon"></span>
+                <span class="conn-name">{{conn.name}}</span>
+                <div class="item-actions">
+                  <span class="spinner" *ngIf="conn.loading"></span>
+                  <button class="delete-icon" (click)="deleteConnection(conn, $event)">×</button>
+                </div>
               </div>
               
-              <div class="column-list" *ngIf="table.expanded">
-                <div *ngFor="let col of table.columns" class="column-item">
-                  <span class="col-icon"></span>
-                  <span class="col-name">{{col.column_name}}</span>
-                  <span class="col-type">{{col.data_type}}</span>
+              <div class="table-list" *ngIf="activeConnection === conn && conn.tables">
+                <div *ngFor="let table of conn.tables" class="table-item-container">
+                  <div class="table-item" (click)="toggleTable(conn, table, $event)" (contextmenu)="console.log('Context menu event on table-item'); $event.preventDefault(); openTableContextMenu(conn, table, $event)">
+                    <span class="chevron" [class.expanded]="table.expanded">▸</span>
+                    <span class="table-icon"></span>
+                    <span class="table-name">{{table.name}}</span>
+                    <span class="spinner mini" *ngIf="table.loading"></span>
+                    <button class="view-btn" (click)="quickViewData(table.name); $event.stopPropagation()">View</button>
+                  </div>
+                  
+                  <div class="column-list" *ngIf="table.expanded">
+                    <div *ngFor="let col of table.columns" class="column-item">
+                      <span class="col-icon"></span>
+                      <span class="col-name">{{col.column_name}}</span>
+                      <span class="col-type">{{col.data_type}}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
       </div>
     </aside>
 
@@ -171,9 +195,6 @@
     </div>
   </div>
 
-  <!-- =========================================
-       Context Menu (Right Click) Mejorado
-       ========================================= -->
   <!-- Capa invisible para cerrar el menú si haces clic fuera -->
   <div *ngIf="showContextMenu" 
        class="modal-overlay" 
