@@ -35,9 +35,9 @@ interface Schema {
 
 interface Database {
   name: string;
-  tables?: any[]; 
-  expanded?: boolean; 
-  loading?: boolean; 
+  tables?: any[];
+  expanded?: boolean;
+  loading?: boolean;
 }
 
 interface Connection {
@@ -49,13 +49,13 @@ interface Connection {
     host?: string;
     user?: string;
     password?: string;
-    database?: string; 
+    database?: string;
   };
-  databases?: Database[]; 
-  schemas?: Schema[]; 
-  tables?: any[]; 
-  expanded?: boolean; 
-  loading?: boolean; 
+  databases?: Database[];
+  schemas?: Schema[];
+  tables?: any[];
+  expanded?: boolean;
+  loading?: boolean;
 }
 
 type EnvType = 'prod' | 'dev' | 'stage' | 'qa' | 'shared' | 'default';
@@ -79,9 +79,9 @@ export class AppComponent implements OnInit {
   activeConnection: any = null;
   showNewConnection = false;
   isConnecting = false;
-  
+
   isEditingConnection: boolean = false;
-  originalConnName: string = ''; 
+  originalConnName: string = '';
 
   newConn = {
     name: '',
@@ -99,7 +99,7 @@ export class AppComponent implements OnInit {
 
   tabs: Tab[] = [];
   activeTabIndex = -1;
-  console: Console = console; 
+  console: Console = console;
   tabCounter = 0;
 
   networks: { [tabId: number]: Network } = {};
@@ -122,7 +122,7 @@ export class AppComponent implements OnInit {
   executing = false;
   lastExecutionTime: number | null = null;
 
-  projectListFlat: {label: string, value: string}[] = [];
+  projectListFlat: { label: string, value: string }[] = [];
   dbTypeOptions = [
     { label: 'PostgreSQL', value: 'postgresql' },
     { label: 'MySQL', value: 'mysql' },
@@ -142,9 +142,9 @@ export class AppComponent implements OnInit {
   contextMenuPositionX: number = 0;
   contextMenuPositionY: number = 0;
   contextMenuOptions: { label: string, action: string }[] = [];
-  contextMenuTarget: any = null; 
+  contextMenuTarget: any = null;
 
-  constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef, private zone: NgZone) {}
+  constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef, private zone: NgZone) { }
 
   ngOnInit() {
     this.loadPersistedData();
@@ -157,7 +157,7 @@ export class AppComponent implements OnInit {
   trackByTable(index: number, table: any) { return table.name; }
   trackBySchema(index: number, schema: any) { return schema.name; }
   trackByProject(index: number, project: any) { return project.name; }
-  trackByTab(index: number, tab: Tab) { return tab.id; } 
+  trackByTab(index: number, tab: Tab) { return tab.id; }
 
   toggleSidebar() {
     this.zone.run(() => {
@@ -206,8 +206,8 @@ export class AppComponent implements OnInit {
   }
 
   openConnectionContextMenu(conn: any, event: MouseEvent) {
-    event.preventDefault(); 
-    event.stopPropagation(); 
+    event.preventDefault();
+    event.stopPropagation();
     this.zone.run(() => {
       this.contextMenuTarget = conn;
       this.contextMenuOptions = [
@@ -223,8 +223,8 @@ export class AppComponent implements OnInit {
   }
 
   openTableContextMenu(conn: any, table: any, event: MouseEvent) {
-    event.preventDefault(); 
-    event.stopPropagation(); 
+    event.preventDefault();
+    event.stopPropagation();
     this.zone.run(() => {
       this.contextMenuTarget = { conn, table };
       this.contextMenuOptions = [
@@ -240,8 +240,8 @@ export class AppComponent implements OnInit {
   handleContextMenuItem(action: string) {
     if (this.contextMenuTarget) {
       if (action === 'delete-connection') {
-        this.deleteConnection(this.contextMenuTarget, new MouseEvent('click')); 
-      } else if (action === 'edit-connection') { 
+        this.deleteConnection(this.contextMenuTarget, new MouseEvent('click'));
+      } else if (action === 'edit-connection') {
         this.openEditConnectionModal(this.contextMenuTarget);
       } else if (action === 'view-er-diagram') {
         this.openERDiagram(this.contextMenuTarget);
@@ -256,21 +256,21 @@ export class AppComponent implements OnInit {
 
   openERDiagram(conn: any) {
     console.log(`[ER Diagram] Clic en 'View ER Diagram' para la conexión:`, conn.name);
-    
+
     this.zone.run(() => {
       this.tabCounter++;
       const newTabId = this.tabCounter;
       console.log(`[ER Diagram] Creando pestaña #${newTabId}`);
-      
-      this.tabs.push({ 
-        id: newTabId, 
-        title: `ER: ${conn.name}`, 
-        sql: '', 
+
+      this.tabs.push({
+        id: newTabId,
+        title: `ER: ${conn.name}`,
+        sql: '',
         type: 'er-diagram',
-        target: conn 
+        target: conn
       });
       this.activeTabIndex = this.tabs.length - 1;
-      
+
       console.log(`[ER Diagram] Forzando actualización del DOM...`);
       this.cdr.detectChanges();
 
@@ -281,44 +281,81 @@ export class AppComponent implements OnInit {
       }, 300);
     });
   }
-initERDiagram(tabId: number, conn: any) {
+
+
+  async initERDiagram(tabId: number, conn: any) {
     const containerId = `network-${tabId}`;
+
+    // 1. Esperar un momento inicial para que Angular cree el div en el DOM
+    await new Promise(resolve => setTimeout(resolve, 400));
+
     const container = document.getElementById(containerId);
-    
-    if (!container) return;
+    if (!container) {
+      console.error(`[ER Diagram] No se encontró el div ${containerId}`);
+      return;
+    }
 
     try {
-      const nodes: any[] = [
-        { id: '1', label: '<b>TABLE_A</b>\nkey: int', shape: 'box', color: '#1e293b', font: { color: '#fff', multi: 'html' } },
-        { id: '2', label: '<b>TABLE_B</b>\nkey: int', shape: 'box', color: '#1e293b', font: { color: '#fff', multi: 'html' } }
-      ];
-      const edges: any[] = [{ from: '1', to: '2', arrows: 'to' }];
+      // 2. OBTENER DATOS REALES
+      const dbTables: any[] = conn.type === 'postgresql'
+        ? (conn.schemas?.flatMap((s: any) => s.tables || []) || [])
+        : (conn.tables || []);
 
-      const options: any = {
-        autoResize: true,
-        height: '100%',
-        width: '100%',
-        physics: { enabled: true, solver: 'repulsion' }
-      };
+      const res = await (this.electronService as any).getRelations(conn);
 
+      const nodes = dbTables.map((t: any) => ({
+        id: t.name,
+        label: `<b>${t.name.toUpperCase()}</b>\n${t.columns?.slice(0, 5).map((c: any) => `- ${c.column_name}`).join('\n') || ''}`,
+        shape: 'box',
+        color: { background: '#1e293b', border: '#38bdf8' },
+        font: { color: '#f8fafc', multi: 'html', face: 'monospace', align: 'left' },
+        margin: { top: 10, bottom: 10, left: 10, right: 10 }
+      }));
+
+      const edges = res && res.success ? res.data.map((rel: any) => ({
+        from: rel.origin_table || rel.TABLE_NAME,
+        to: rel.target_table || rel.REFERENCED_TABLE_NAME,
+        label: `${rel.origin_column || rel.COLUMN_NAME}`,
+        arrows: 'to',
+        color: { color: '#94a3b8' },
+        font: { color: '#94a3b8', size: 10, background: '#0f172a', strokeWidth: 0 }
+      })) : [];
+
+      // 3. RENDERIZADO CONTROLADO
       this.zone.runOutsideAngular(() => {
-        const network = new Network(container, { nodes, edges }, options);
+        const network = new Network(container, { nodes, edges }, {
+          autoResize: true,
+          height: '100%',
+          width: '100%',
+          physics: { enabled: true, solver: 'repulsion', repulsion: { nodeDistance: 250 } }
+        });
+
         this.networks[tabId] = network;
 
-        // --- EL TRUCO FINAL ---
-        // Esperamos a que la animación de la pestaña termine y forzamos el tamaño
+        // 4. EL TRUCO PARA EL NEGRO: Redibujar cuando el contenedor tenga tamaño real
+        const resizeObserver = new ResizeObserver(() => {
+          if (container.clientWidth > 0 && container.clientHeight > 0) {
+            network.setSize(container.clientWidth + 'px', container.clientHeight + 'px');
+            network.redraw();
+            network.fit();
+            resizeObserver.disconnect(); // Dejar de observar una vez dibujado
+          }
+        });
+        resizeObserver.observe(container);
+
+        // Backup por si el observer falla
         setTimeout(() => {
-          console.log("[ER Diagram] Forzando redibujado manual...");
           network.setSize(container.clientWidth + 'px', container.clientHeight + 'px');
           network.redraw();
           network.fit();
-        }, 500); 
+        }, 1000);
       });
 
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error("[ER Diagram] Fallo al inicializar:", error);
     }
   }
+
 
   onEditorInit(editor: any) {
     this.editor = editor;
@@ -326,7 +363,7 @@ initERDiagram(tabId: number, conn: any) {
       const model = editor.getModel();
       const value = model.getValue();
       const keywords = ['select', 'from', 'where', 'insert', 'update', 'delete', 'into', 'values', 'limit', 'order', 'by', 'join', 'left', 'inner', 'on', 'group', 'and', 'or', 'not', 'null', 'is', 'as', 'create', 'table', 'drop', 'alter', 'table'];
-      
+
       let newValue = value;
       keywords.forEach(kw => {
         const regex = new RegExp(`\\b${kw}\\b`, 'gi');
@@ -370,7 +407,7 @@ initERDiagram(tabId: number, conn: any) {
   }
 
   updateProjectLists() {
-    const flat: {label: string, value: string}[] = [];
+    const flat: { label: string, value: string }[] = [];
     const flatten = (projs: Project[], prefix = '') => {
       if (!projs) return;
       projs.forEach(p => {
@@ -387,7 +424,7 @@ initERDiagram(tabId: number, conn: any) {
   addProject() {
     if (!this.newProjectName.trim()) return;
     const newP: Project = { name: this.newProjectName.trim(), subProjects: [], isExpanded: false };
-    
+
     if (this.selectedParentProject === 'root') {
       this.projects.push(newP);
     } else {
@@ -436,7 +473,7 @@ initERDiagram(tabId: number, conn: any) {
 
     const removeProjectRecursive = (projs: Project[]): Project[] => {
       return projs.filter(p => {
-        if (p.name === projectToDelete.name) return false; 
+        if (p.name === projectToDelete.name) return false;
         if (p.subProjects) {
           p.subProjects = removeProjectRecursive(p.subProjects);
         }
@@ -446,7 +483,7 @@ initERDiagram(tabId: number, conn: any) {
 
     this.projects = removeProjectRecursive(this.projects);
     localStorage.setItem('dbgeek_projects', JSON.stringify(this.projects));
-    
+
     this.updateProjectLists();
     this.cdr.detectChanges();
   }
@@ -454,7 +491,7 @@ initERDiagram(tabId: number, conn: any) {
   saveProjectName(project: Project) {
     if (project.name.trim() === '') {
       alert('Project name cannot be empty.');
-      this.loadPersistedData(); 
+      this.loadPersistedData();
       project.isEditing = false;
       this.cdr.detectChanges();
       return;
@@ -468,7 +505,7 @@ initERDiagram(tabId: number, conn: any) {
 
     if (isDuplicate(this.projects, project, newName)) {
       alert(`Project with name "${newName}" already exists.`);
-      this.loadPersistedData(); 
+      this.loadPersistedData();
       project.isEditing = false;
       this.cdr.detectChanges();
       return;
@@ -494,8 +531,8 @@ initERDiagram(tabId: number, conn: any) {
   openEditConnectionModal(conn: Connection) {
     this.zone.run(() => {
       this.isEditingConnection = true;
-      this.originalConnName = conn.name; 
-      this.newConn = JSON.parse(JSON.stringify(conn)); 
+      this.originalConnName = conn.name;
+      this.newConn = JSON.parse(JSON.stringify(conn));
       if (!this.newConn.connection) {
         this.newConn.connection = { host: 'localhost', user: 'postgres', password: '', database: 'postgres' };
       }
@@ -570,7 +607,7 @@ initERDiagram(tabId: number, conn: any) {
       name: '', type: 'postgresql', project: this.activeProjectName, env: 'default',
       connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
     };
-    this.isEditingConnection = false; 
+    this.isEditingConnection = false;
     this.originalConnName = '';
   }
 
@@ -579,7 +616,7 @@ initERDiagram(tabId: number, conn: any) {
       this.activeConnection = conn;
       this.cdr.detectChanges();
     });
-    
+
     if (conn.type === 'postgresql') {
       if (!conn.schemas) this.refreshSchemas(conn);
     } else {
@@ -591,10 +628,10 @@ initERDiagram(tabId: number, conn: any) {
     conn.loading = true;
     this.cdr.detectChanges();
     try {
-      const res = await (this.electronService as any).getSchemas 
-        ? await (this.electronService as any).getSchemas(conn) 
+      const res = await (this.electronService as any).getSchemas
+        ? await (this.electronService as any).getSchemas(conn)
         : { success: true, data: ['public'] };
-      
+
       this.zone.run(() => {
         if (res.success) {
           conn.schemas = res.data.map((s: string) => ({ name: s, tables: null, expanded: false, loading: false }));
@@ -614,12 +651,12 @@ initERDiagram(tabId: number, conn: any) {
   async toggleSchema(conn: any, schema: any, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     this.zone.run(() => {
       schema.expanded = !schema.expanded;
       this.cdr.detectChanges();
     });
-    
+
     if (schema.expanded && !schema.tables) {
       this.zone.run(() => {
         schema.loading = true;
@@ -627,7 +664,7 @@ initERDiagram(tabId: number, conn: any) {
       });
 
       const res = await this.electronService.getTables(conn, schema.name);
-      
+
       this.zone.run(() => {
         schema.loading = false;
         if (res.success) {
@@ -654,20 +691,20 @@ initERDiagram(tabId: number, conn: any) {
   async toggleTable(conn: any, table: any, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     this.zone.run(() => {
       table.expanded = !table.expanded;
       this.cdr.detectChanges();
     });
-    
+
     if (table.expanded && table.columns.length === 0) {
       this.zone.run(() => {
         table.loading = true;
         this.cdr.detectChanges();
       });
-      
+
       const res = await this.electronService.getColumns(conn, table.name, table.schema);
-      
+
       this.zone.run(() => {
         table.loading = false;
         if (res.success) {
@@ -682,7 +719,7 @@ initERDiagram(tabId: number, conn: any) {
     event.preventDefault();
     event.stopPropagation();
     const fullTableName = table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`;
-    
+
     if (!confirm(`Are you sure you want to delete the table ${fullTableName} from connection "${conn.name}"? This action cannot be undone.`)) {
       return;
     }
@@ -694,7 +731,7 @@ initERDiagram(tabId: number, conn: any) {
           if (conn.type === 'postgresql' && table.schema) {
             const schema = conn.schemas.find((s: any) => s.name === table.schema);
             if (schema && schema.tables) {
-               schema.tables = schema.tables.filter((t: any) => t.name !== table.name);
+              schema.tables = schema.tables.filter((t: any) => t.name !== table.name);
             }
           } else {
             conn.tables = conn.tables.filter((t: any) => t.name !== table.name);
@@ -713,7 +750,7 @@ initERDiagram(tabId: number, conn: any) {
   quickViewData(table: any) {
     const fullTableName = table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`;
     const sql = `SELECT * FROM ${fullTableName} LIMIT 100;`;
-    
+
     this.zone.run(() => {
       let queryTab = this.tabs[this.activeTabIndex];
       if (!queryTab || queryTab.type !== 'query') {
@@ -770,7 +807,7 @@ initERDiagram(tabId: number, conn: any) {
     if (!activeTab || activeTab.type !== 'query') return;
 
     let sqlToExecute = activeTab.sql;
-    
+
     if (this.editor && this.editor.getSelection && this.editor.getModel) {
       const selection = this.editor.getSelection();
       const selectedText = this.editor.getModel().getValueInRange(selection);
@@ -812,7 +849,7 @@ initERDiagram(tabId: number, conn: any) {
         this.executing = false;
         this.cdr.detectChanges();
       });
-    }  
+    }
   }
 
   updateColumnDefs(data: any[]) {
