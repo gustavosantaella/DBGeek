@@ -63,14 +63,14 @@ export class ElectronService {
   async getRelations(conn: any) {
     // Query compatible con MySQL / MariaDB
     const query = `
-    SELECT 
-        TABLE_NAME as origin_table, 
-        COLUMN_NAME as origin_column, 
-        REFERENCED_TABLE_NAME as target_table, 
+    SELECT
+        TABLE_NAME as origin_table,
+        COLUMN_NAME as origin_column,
+        REFERENCED_TABLE_NAME as target_table,
         REFERENCED_COLUMN_NAME as target_column
-    FROM information_schema.KEY_COLUMN_USAGE
-    WHERE TABLE_SCHEMA = '${conn.connection.database}' 
-    AND REFERENCED_TABLE_NAME IS NOT NULL;
+      FROM information_schema.KEY_COLUMN_USAGE
+      WHERE TABLE_SCHEMA = '${conn.connection.database}' 
+      AND REFERENCED_TABLE_NAME IS NOT NULL;
   `;
     // Ejecuta y retorna el resultado
   }
