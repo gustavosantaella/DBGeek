@@ -123,7 +123,6 @@ export class AppComponent implements OnInit {
   constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
-    console.log('ngOnInit - showNewConnection initially:', this.showNewConnection);
     this.loadPersistedData();
     this.updateProjectLists();
     this.addNewTab();
@@ -140,6 +139,7 @@ export class AppComponent implements OnInit {
     console.log('openConnectionContextMenu called.');
     console.log('Opening connection context menu for:', conn.name);
     event.preventDefault(); // Prevent default browser context menu
+    console.log("right click", conn)
     this.contextMenuTarget = conn;
     this.contextMenuOptions = [
       { label: 'Edit Connection', action: 'edit-connection' }, // Added Edit option
@@ -154,7 +154,7 @@ export class AppComponent implements OnInit {
   openTableContextMenu(conn: any, table: any, event: MouseEvent) {
     console.log('openTableContextMenu called.');
     console.log('Opening table context menu for:', conn.name, '-', table.name);
-    event.preventDefault(); // Prevent default browser context menu
+    // event.preventDefault(); // Prevent default browser context menu
     this.contextMenuTarget = { conn, table };
     this.contextMenuOptions = [
       { label: 'Delete Table', action: 'delete-table' }
@@ -168,9 +168,10 @@ export class AppComponent implements OnInit {
   handleContextMenuItem(action: string) {
     console.log('handleContextMenuItem called.');
     console.log('handleContextMenuItem invoked with action:', action);
-    this.closeContextMenu();
+    console.log(this.contextMenuTarget, action === 'delete-connection');
     if (this.contextMenuTarget) {
       if (action === 'delete-connection') {
+        console.log('delete-connection action selected.');
         this.deleteConnection(this.contextMenuTarget, new MouseEvent('click')); // Re-use existing delete logic
       } else if (action === 'edit-connection') { // Added Edit handler
         this.openEditConnectionModal(this.contextMenuTarget);
@@ -180,6 +181,7 @@ export class AppComponent implements OnInit {
         this.deleteTable(conn, table, new MouseEvent('click'));
       }
     }
+    this.closeContextMenu();
   }
 
   onEditorInit(editor: any) {
@@ -404,6 +406,7 @@ export class AppComponent implements OnInit {
   }
 
   deleteConnection(conn: any, event: MouseEvent) {
+    this.console.log("delete connection (TESTING)", conn)
     console.log('deleteConnection called.');
     console.log('deleteConnection method invoked for:', conn.name);
     event.preventDefault();
