@@ -1,0 +1,184 @@
+<div class="app-container" [class]="activeConnection?.env || 'default'" (click)="closeContextMenu()">
+  <div class="title-bar">
+    <div class="app-logo">
+      <span class="logo-icon"></span>
+      <span class="logo-text">DBGeek</span>
+      <span class="env-badge" *ngIf="activeConnection?.env !== 'default'">{{activeConnection?.env | uppercase}}</span>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <div class="project-selector">
+          <select [(ngModel)]="activeProjectName">
+            <option *ngFor="let p of projectListFlat" [value]="p.value">{{p.label}}</option>
+          </select>
+          <button class="icon-btn" (click)="openProjectManager()">⚙</button>
+        </div>
+        <div class="header-actions">
+          <h3>Connections</h3>
+          <button class="add-btn" (click)="showNewConnection = true">+</button>
+        </div>
+      </div>
+
+      <div class="connection-list">
+        <div *ngFor="let conn of filteredConnections" class="connection-group">
+          <div class="connection-item" 
+               [class.active]="activeConnection === conn"
+               [class]="conn.env"
+               (click)="setActiveConnection(conn)"
+               (contextmenu)="console.log('Context menu event on connection-item'); $event.preventDefault(); openConnectionContextMenu(conn, $event)">
+            <span class="conn-icon"></span>
+            <span class="conn-name">{{conn.name}}</span>
+            <div class="item-actions">
+              <span class="spinner" *ngIf="conn.loading"></span>
+              <button class="delete-icon" (click)="deleteConnection(conn, $event)">×</button>
+            </div>
+          </div>
+          
+          <div class="table-list" *ngIf="activeConnection === conn && conn.tables">
+            <div *ngFor="let table of conn.tables" class="table-item-container">
+              <div class="table-item" (click)="toggleTable(conn, table, $event)" (contextmenu)="console.log('Context menu event on table-item'); $event.preventDefault(); openTableContextMenu(conn, table, $event)">
+                <span class="chevron" [class.expanded]="table.expanded">▸</span>
+                <span class="table-icon"></span>
+                <span class="table-name">{{table.name}}</span>
+                <span class="spinner mini" *ngIf="table.loading"></span>
+                <button class="view-btn" (click)="quickViewData(table.name); $event.stopPropagation()">View</button>
+              </div>
+              
+              <div class="column-list" *ngIf="table.expanded">
+                <div *ngFor="let col of table.columns" class="column-item">
+                  <span class="col-icon"></span>
+                  <span class="col-name">{{col.column_name}}</span>
+                  <span class="col-type">{{col.data_type}}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content-area">
+      <div class="tabs-header glass">
+        <div *ngFor="let tab of tabs; let i = index" 
+             class="tab-item" 
+             [class.active]="activeTabIndex === i"
+             (click)="activeTabIndex = i">
+          <span class="tab-icon">{{tab.type === 'query' ? '' : '📁'}}</span>
+          <span class="tab-title">{{tab.title}}</span>
+          <span class="tab-close" (click)="closeTab(i, $event)">×</span>
+        </div>
+        <button class="new-tab-btn" (click)="addNewTab()">+</button>
+      </div>
+
+      <div class="tab-content" *ngIf="tabs.length > 0">
+        <ng-container *ngIf="tabs[activeTabIndex].type === 'query'">
+          <div class="editor-container glass">
+            <div class="editor-actions">
+              <button class="run-btn" (click)="executeQuery()" [disabled]="executing">
+                {{executing ? '⌛ Running...' : '▶ Run Selection'}}
+              </button>
+              <span class="exec-info" *ngIf="lastExecutionTime">{{lastExecutionTime}}ms</span>
+            </div>
+            <ngx-monaco-editor 
+              class="monaco-editor" 
+              [options]="editorOptions" 
+              [(ngModel)]="tabs[activeTabIndex].sql"
+              (onInit)="onEditorInit($event)">
+            </ngx-monaco-editor>
+          </div>
+
+          <div class="results-container glass">
+            <ag-grid-angular
+              class="ag-theme-alpine-dark full-height"
+              [rowData]="results"
+              [columnDefs]="columnDefs"
+              [defaultColDef]="defaultColDef">
+            </ag-grid-angular>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="tabs[activeTabIndex].type === 'project-manager'">
+          <div class="project-manager-view glass">
+            <h2>Project Manager</h2>
+            <div class="add-project-form">
+              <app-select label="Parent Project" [(ngModel)]="selectedParentProject" [options]="[{label: 'None', value: ''}, {label: 'Root', value: 'root'}, ...projectListFlat]"></app-select>
+              <app-input label="Project Name" [(ngModel)]="newProjectName" (keyup.enter)="addProject()"></app-input>
+              <button (click)="addProject()">Create Project</button>
+            </div>
+
+            <div class="project-list-display">
+              <h3>Existing Projects</h3>
+              <ng-container *ngTemplateOutlet="projectTemplate; context: { $implicit: projects, level: 0 }"></ng-container>
+            </div>
+
+            <ng-template #projectTemplate let-projs let-level="level">
+              <div *ngFor="let p of projs" [style.padding-left.px]="level * 20" class="project-item" [class.expanded]="p.isExpanded">
+                <div class="project-header" (click)="toggleProjectExpansion(p)">
+                  <span class="project-icon">📁</span>
+                  <ng-container *ngIf="!p.isEditing">
+                    <span class="project-name">{{p.name}}</span>
+                    <span class="project-stats">
+                      <span class="stat-item"><span class="icon">&#x1F4DA;</span> {{p.subProjects?.length || 0}}</span>
+                      <span class="stat-item"><span class="icon">&#x1F517;</span> {{getConnectionCount(p.name)}}</span>
+                    </span>
+                    <div class="project-actions" (click)="$event.stopPropagation()">
+                      <button class="icon-btn edit-btn" (click)="p.isEditing = true">✏️</button>
+                      <button class="icon-btn delete-btn" (click)="deleteProject(p)">🗑️</button>
+                    </div>
+                  </ng-container>
+                  <ng-container *ngIf="p.isEditing">
+                    <input [(ngModel)]="p.name" (blur)="saveProjectName(p)" (keyup.enter)="saveProjectName(p)" (click)="$event.stopPropagation()">
+                    <div class="project-actions" (click)="$event.stopPropagation()">
+                      <button class="icon-btn" (click)="saveProjectName(p)">✅</button>
+                      <button class="icon-btn" (click)="p.isEditing = false">❌</button>
+                    </div>
+                  </ng-container>
+                  <span class="chevron" [class.expanded]="p.isExpanded">▸</span>
+                </div>
+                <div class="sub-project-list" *ngIf="p.isExpanded && p.subProjects && p.subProjects.length > 0">
+                  <ng-container *ngTemplateOutlet="projectTemplate; context: { $implicit: p.subProjects, level: level + 1 }"></ng-container>
+                </div>
+              </div>
+            </ng-template>
+          </div>
+        </ng-container>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" *ngIf="showNewConnection">
+    <div class="modal-card glass" (click)="$event.stopPropagation()">
+      <h2>{{isEditingConnection ? 'Edit Connection' : 'New Connection'}}</h2>
+      <div class="form-grid">
+        <app-input label="Name" [(ngModel)]="newConn.name"></app-input>
+        <app-select label="Environment" [(ngModel)]="newConn.env" [options]="envOptions"></app-select>
+        <app-select label="Project" [(ngModel)]="newConn.project" [options]="projectListFlat"></app-select>
+        <app-select label="Type" [(ngModel)]="newConn.type" [options]="dbTypeOptions"></app-select>
+        <app-input label="Host" [(ngModel)]="newConn.connection.host"></app-input>
+        <app-input label="User" [(ngModel)]="newConn.connection.user"></app-input>
+        <app-input label="Password" type="password" [(ngModel)]="newConn.connection.password"></app-input>
+        <app-input label="Database" [(ngModel)]="newConn.connection.database" [fullWidth]="true"></app-input>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary-btn" (click)="showNewConnection = false">Cancel</button>
+        <button (click)="testAndAddConnection()" [disabled]="isConnecting">
+          {{isConnecting ? 'Connecting...' : 'Connect'}}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="showContextMenu" class="context-menu" 
+       [style.left.px]="contextMenuPositionX" 
+       [style.top.px]="contextMenuPositionY"
+       (click)="$event.stopPropagation()">
+    <div *ngFor="let option of contextMenuOptions" 
+         class="context-menu-item" 
+         (click)="handleContextMenuItem(option.action); $event.stopPropagation()">
+      {{option.label}}
+    </div>
+  </div>
+</div>

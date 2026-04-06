@@ -1,0 +1,306 @@
+:root {
+  --bg-color: #0f172a;
+  --sidebar-bg: rgba(30, 41, 59, 0.7);
+  --header-bg: rgba(15, 23, 42, 0.8);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-color: #38bdf8;
+  --accent-hover: #0ea5e9;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --glass-blur: 12px;
+  --card-bg: rgba(30, 41, 59, 0.4);
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.glass {
+  background: var(--card-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border-color);
+}
+
+input, select, textarea {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  outline: none;
+  &:focus { border-color: var(--accent-color); background: rgba(255, 255, 255, 0.08); }
+}
+
+select option {
+  background-color: #1e293b; /* Dark solid background for options */
+  color: var(--text-primary);
+}
+
+button {
+  cursor: pointer;
+  border-radius: 8px;
+  border: none;
+  padding: 8px 16px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background-color: var(--accent-color);
+  color: white;
+
+  &:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.secondary-btn {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+
+  &:hover {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* AG-Grid Theme Customization (Basic) */
+.ag-theme-alpine-dark {
+  --ag-background-color: transparent !important;
+  --ag-header-background-color: rgba(30, 41, 59, 0.8) !important;
+  --ag-odd-row-background-color: rgba(255, 255, 255, 0.02) !important;
+  --ag-border-color: var(--border-color) !important;
+  --ag-foreground-color: var(--text-primary) !important;
+  --ag-secondary-foreground-color: var(--text-secondary) !important;
+}
+
+/* Project Manager Styles */
+.project-manager-view {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.add-project-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+
+  app-input, app-select {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  button {
+    padding: 10px 20px;
+    min-width: 120px;
+  }
+}
+
+.project-list-display {
+  flex-grow: 1;
+  padding-top: 10px;
+
+  h3 {
+    color: var(--accent-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+  }
+}
+
+.project-item {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden; /* For collapse animation */
+  transition: all 0.2s ease-in-out;
+
+  .project-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: rgba(30, 41, 59, 0.6);
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: rgba(30, 41, 59, 0.8);
+    }
+
+    .project-icon {
+      margin-right: 10px;
+      color: var(--accent-color);
+      font-size: 1.2em;
+    }
+  
+    .project-name {
+      font-weight: bold;
+      color: var(--text-primary);
+      flex-grow: 1;
+    }
+
+    input[type="text"] {
+      flex-grow: 1;
+      padding: 5px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background-color: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    .project-stats {
+      display: flex;
+      gap: 15px;
+      font-size: 0.9em;
+      color: var(--text-secondary);
+      margin-left: auto; /* Push to the right */
+    
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    
+        .icon {
+          font-size: 1.1em;
+          color: var(--accent-color);
+        }
+      }
+    }
+  
+    .project-actions {
+      display: flex;
+      gap: 5px;
+      margin-left: 15px;
+
+      .icon-btn {
+        padding: 5px;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        border-radius: 50%;
+        
+        &:hover {
+          background-color: var(--border-color);
+          color: var(--text-primary);
+          transform: scale(1.1);
+        }
+
+        &.delete-btn {
+          color: #ef4444; /* Red for delete */
+          &:hover { background-color: rgba(239, 68, 68, 0.2); }
+        }
+
+        &.edit-btn {
+          color: #eab308; /* Yellow for edit */
+          &:hover { background-color: rgba(234, 179, 8, 0.2); }
+        }
+      }
+    }
+  
+    .chevron {
+      margin-left: 15px;
+      transition: transform 0.2s ease;
+      &.expanded {
+        transform: rotate(90deg);
+      }
+    }
+  }
+
+  .sub-project-list {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    background-color: rgba(30, 41, 59, 0.4); /* Slightly different background for sub-items */
+
+    .project-item {
+      border-top: none;
+      background-color: transparent; /* No background for sub-items */
+      margin-bottom: 0;
+
+      .project-header {
+        border-bottom: none;
+        &:hover {
+          background-color: rgba(45, 62, 89, 0.6); /* Lighter hover for sub-items */
+        }
+      }
+    }
+  }
+
+  /* When project-item is not expanded, hide sub-project-list smoothly */
+  &:not(.expanded) > .sub-project-list {
+    max-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+  }
+}
+
+.context-menu {
+  position: fixed;
+  background-color: var(--card-bg);
+  border: 5px solid red !important; /* TEMP DEBUG STYLE */
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 9999999999999999 !important; /* TEMP DEBUG STYLE */
+  min-width: 180px;
+  padding: 5px 0;
+
+  .context-menu-item {
+    padding: 8px 15px;
+    color: yellow !important; /* TEMP DEBUG STYLE */
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    background-color: blue !important; /* TEMP DEBUG STYLE */
+
+    &:hover {
+      background-color: var(--accent-color);
+      color: white;
+    }
+  }
+}
