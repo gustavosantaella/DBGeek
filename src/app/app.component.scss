@@ -2,18 +2,17 @@
    VARIABLES DE TEMA OSCURO (Modern IDE Style)
    ========================================= */
 :host {
-  /* Paleta basada en tonos Slate oscuros profundos */
-  --bg-color: #0f172a;          /* Fondo del editor principal y grid */
-  --sidebar-bg: #1e293b;        /* Fondo del panel lateral y modales */
-  --header-bg: #0b1120;         /* Barra de título superior */
-  --border-color: #334155;      /* Líneas de separación sutiles */
+  --bg-color: #0f172a;          
+  --sidebar-bg: #1e293b;        
+  --header-bg: #0b1120;         
+  --border-color: #334155;      
   
-  --text-primary: #f8fafc;      /* Texto blanco principal */
-  --text-secondary: #94a3b8;    /* Texto grisáceo secundario */
+  --text-primary: #f8fafc;      
+  --text-secondary: #94a3b8;    
   
-  --accent-color: #38bdf8;      /* Azul vibrante (como el de tu botón) */
-  --accent-hover: #0284c7;      /* Azul más oscuro al pasar el mouse */
-  --danger-color: #ef4444;      /* Rojo para eliminar */
+  --accent-color: #38bdf8;      
+  --accent-hover: #0284c7;      
+  --danger-color: #ef4444;      
 }
 
 /* =========================================
@@ -36,7 +35,7 @@
   color: var(--text-primary);
   transition: border 0.3s ease;
   border: 2px solid transparent;
-  font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; /* Fuentes más limpias */
+  font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; 
 
   &.prod { border-color: #ef4444; }
   &.dev { border-color: #10b981; }
@@ -242,7 +241,7 @@
     
     .run-btn { 
       background: var(--accent-color); 
-      color: #0f172a; /* Texto oscuro para contrastar con el fondo azul claro */
+      color: #0f172a; 
       border: none; 
       padding: 8px 16px; 
       font-size: 12px; 
@@ -254,7 +253,7 @@
       box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2);
       
       &:hover:not([disabled]) { 
-        background: #7dd3fc; /* Un azul ligeramente más brillante */
+        background: #7dd3fc; 
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
       } 
@@ -367,3 +366,35 @@
 }
 
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 13px; white-space: normal; }
+
+/* =========================================
+   ER DIAGRAM VIEW
+   ========================================= */
+.er-diagram-view {
+  flex: 1;
+  padding: 32px;
+  background: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  h2 { margin-top: 0; margin-bottom: 24px; color: var(--text-primary); font-weight: 600; font-size: 20px;}
+
+  .er-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.01);
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    text-align: center;
+    padding: 40px;
+
+    .placeholder-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
+    h3 { color: var(--text-primary); margin: 0 0 8px 0; }
+    p { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
+    .sub-text { font-size: 13px; opacity: 0.6; max-width: 400px; line-height: 1.5; margin-top: 8px;}
+  }
+}

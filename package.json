@@ -25,6 +25,7 @@
     "ag-grid-community": "^35.2.0",
     "electron": "^41.1.1",
     "electron-builder": "^26.8.1",
+    "mermaid": "^11.14.0",
     "monaco-editor": "^0.55.1",
     "mysql2": "^3.20.0",
     "ngx-monaco-editor-v2": "^21.1.4",
@@ -33,6 +34,7 @@
     "sqlite3": "^6.0.1",
     "tedious": "^19.2.1",
     "tslib": "^2.3.0",
+    "vis-network": "^10.0.2",
     "zone.js": "^0.16.1"
   },
   "devDependencies": {

@@ -32,7 +32,6 @@
           No connections in this project.
         </div>
 
-        <!-- TRACK BY GROUP APLICADO -->
         <div *ngFor="let group of groupedConnections; trackBy: trackByGroup" class="db-type-section">
           <div class="db-type-header" 
                [class.expanded]="groupExpandedState[group.type]"
@@ -45,7 +44,6 @@
 
           <div class="db-type-content" *ngIf="groupExpandedState[group.type]">
             
-            <!-- TRACK BY CONNECTION APLICADO -->
             <div *ngFor="let conn of group.connections; trackBy: trackByConn" class="connection-group">
               
               <div class="connection-item" 
@@ -63,7 +61,6 @@
               <ng-template #tablesTemplate let-tables="tables" let-parentConn="conn">
                 <div class="table-list" *ngIf="tables">
                   
-                  <!-- TRACK BY TABLE APLICADO -->
                   <div *ngFor="let table of tables; trackBy: trackByTable" class="table-item-container">
                     <div class="table-item" (click)="toggleTable(parentConn, table, $event)" (contextmenu)="openTableContextMenu(parentConn, table, $event)">
                       <span class="chevron" [class.expanded]="table.expanded">▸</span>
@@ -86,7 +83,6 @@
 
               <div class="schema-list" *ngIf="activeConnection === conn && conn.type === 'postgresql' && conn.schemas">
                 
-                <!-- TRACK BY SCHEMA APLICADO -->
                 <div *ngFor="let schema of conn.schemas; trackBy: trackBySchema">
                   <div class="schema-item" (click)="toggleSchema(conn, schema, $event)">
                     <span class="chevron" [class.expanded]="schema.expanded">▸</span>
@@ -116,7 +112,10 @@
              class="tab-item" 
              [class.active]="activeTabIndex === i"
              (click)="activeTabIndex = i">
-          <span class="tab-icon">{{tab.type === 'query' ? '📝' : '📁'}}</span>
+          <!-- Icono de pestaña dinámico (Query, ER Diagram, Project Manager) -->
+          <span class="tab-icon">
+            {{tab.type === 'query' ? '📝' : (tab.type === 'er-diagram' ? '🕸️' : '📁')}}
+          </span>
           <span class="tab-title">{{tab.title}}</span>
           <span class="tab-close" (click)="closeTab(i, $event)">×</span>
         </div>
@@ -124,6 +123,8 @@
       </div>
 
       <div class="tab-content" *ngIf="tabs.length > 0">
+        
+        <!-- PESTAÑA SQL QUERY -->
         <ng-container *ngIf="tabs[activeTabIndex].type === 'query'">
           <div class="editor-container glass">
             <div class="editor-actions">
@@ -152,6 +153,7 @@
           </div>
         </ng-container>
 
+        <!-- PESTAÑA PROJECT MANAGER -->
         <ng-container *ngIf="tabs[activeTabIndex].type === 'project-manager'">
           <div class="project-manager-view glass">
             <h2>Project Manager</h2>
@@ -167,11 +169,7 @@
             </div>
 
             <ng-template #projectTemplate let-projs let-level="level">
-              
-              <!-- TRACK BY PROJECT APLICADO -->
               <div *ngFor="let p of projs; trackBy: trackByProject" [style.padding-left.px]="level * 20" class="project-item" [class.expanded]="p.isExpanded">
-                
-                <!-- CORREGIDO EL CLICK EVENT AQUÍ TAMBIÉN -->
                 <div class="project-header" (click)="toggleProjectExpansion(p, $event)">
                   <span class="project-icon">📁</span>
                   <ng-container *ngIf="!p.isEditing">
@@ -201,6 +199,25 @@
             </ng-template>
           </div>
         </ng-container>
+
+        <!-- PESTAÑA ER DIAGRAM -->
+        <ng-container *ngIf="tabs[activeTabIndex].type === 'er-diagram'">
+          <div class="er-diagram-view glass">
+            <h2>ER Diagram: {{ tabs[activeTabIndex].target?.name }}</h2>
+            
+            <div class="er-placeholder">
+              <span class="placeholder-icon">🕸️</span>
+              <h3>Diagram Visualizer</h3>
+              <p>En el futuro, aquí se renderizarán las relaciones de la base de datos.</p>
+              <p class="sub-text">Puedes integrar librerías como Mermaid.js, D3.js o vis-network para dibujar las tablas y sus Foreign Keys.</p>
+              
+              <button class="run-btn" style="margin-top: 20px;">
+                Generate Diagram
+              </button>
+            </div>
+          </div>
+        </ng-container>
+
       </div>
     </main>
   </div>

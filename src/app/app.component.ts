@@ -19,7 +19,8 @@ interface Tab {
   id: number;
   title: string;
   sql: string;
-  type?: 'query' | 'project-manager';
+  type?: 'query' | 'project-manager' | 'er-diagram';
+  target?: any;
 }
 
 interface Schema {
@@ -138,7 +139,6 @@ export class AppComponent implements OnInit {
   contextMenuOptions: { label: string, action: string }[] = [];
   contextMenuTarget: any = null; 
 
-  // Inyectamos NgZone para obligar a Angular a registrar los clicks
   constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef, private zone: NgZone) {}
 
   ngOnInit() {
@@ -147,7 +147,6 @@ export class AppComponent implements OnInit {
     this.addNewTab();
   }
 
-  // OPTIMIZACIÓN: Funciones TrackBy para que Angular no destruya el DOM al hacer click
   trackByGroup(index: number, group: any) { return group.type; }
   trackByConn(index: number, conn: any) { return conn.name; }
   trackByTable(index: number, table: any) { return table.name; }
@@ -161,7 +160,7 @@ export class AppComponent implements OnInit {
     });
   }
 
-toggleGroup(type: string, event: MouseEvent) {
+  toggleGroup(type: string, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
     this.zone.run(() => {
@@ -206,6 +205,7 @@ toggleGroup(type: string, event: MouseEvent) {
     this.zone.run(() => {
       this.contextMenuTarget = conn;
       this.contextMenuOptions = [
+        { label: 'View ER Diagram', action: 'view-er-diagram' },
         { label: 'Edit Connection', action: 'edit-connection' },
         { label: 'Delete Connection', action: 'delete-connection' }
       ];
@@ -237,6 +237,8 @@ toggleGroup(type: string, event: MouseEvent) {
         this.deleteConnection(this.contextMenuTarget, new MouseEvent('click')); 
       } else if (action === 'edit-connection') { 
         this.openEditConnectionModal(this.contextMenuTarget);
+      } else if (action === 'view-er-diagram') {
+        this.openERDiagram(this.contextMenuTarget);
       }
       else if (action === 'delete-table') {
         const { conn, table } = this.contextMenuTarget;
@@ -244,6 +246,21 @@ toggleGroup(type: string, event: MouseEvent) {
       }
     }
     this.closeContextMenu();
+  }
+
+  openERDiagram(conn: any) {
+    this.zone.run(() => {
+      this.tabCounter++;
+      this.tabs.push({ 
+        id: this.tabCounter, 
+        title: `ER: ${conn.name}`, 
+        sql: '', 
+        type: 'er-diagram',
+        target: conn 
+      });
+      this.activeTabIndex = this.tabs.length - 1;
+      this.cdr.detectChanges();
+    });
   }
 
   onEditorInit(editor: any) {
@@ -336,7 +353,7 @@ toggleGroup(type: string, event: MouseEvent) {
     this.updateProjectLists();
   }
 
-toggleProjectExpansion(project: Project, event: MouseEvent) {
+  toggleProjectExpansion(project: Project, event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
     this.zone.run(() => {
