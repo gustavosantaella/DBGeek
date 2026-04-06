@@ -32,10 +32,11 @@
           No connections in this project.
         </div>
 
-        <div *ngFor="let group of groupedConnections" class="db-type-section">
+        <!-- TRACK BY GROUP APLICADO -->
+        <div *ngFor="let group of groupedConnections; trackBy: trackByGroup" class="db-type-section">
           <div class="db-type-header" 
                [class.expanded]="groupExpandedState[group.type]"
-               (click)="toggleGroup(group.type)">
+               (click)="toggleGroup(group.type, $event)">
             <span class="chevron" [class.expanded]="groupExpandedState[group.type]">▸</span>
             <span class="db-icon">{{ group.icon }}</span>
             <span class="db-type-label">{{ group.label }}</span>
@@ -43,7 +44,9 @@
           </div>
 
           <div class="db-type-content" *ngIf="groupExpandedState[group.type]">
-            <div *ngFor="let conn of group.connections" class="connection-group">
+            
+            <!-- TRACK BY CONNECTION APLICADO -->
+            <div *ngFor="let conn of group.connections; trackBy: trackByConn" class="connection-group">
               
               <div class="connection-item" 
                    [class.active]="activeConnection === conn"
@@ -59,7 +62,9 @@
               
               <ng-template #tablesTemplate let-tables="tables" let-parentConn="conn">
                 <div class="table-list" *ngIf="tables">
-                  <div *ngFor="let table of tables" class="table-item-container">
+                  
+                  <!-- TRACK BY TABLE APLICADO -->
+                  <div *ngFor="let table of tables; trackBy: trackByTable" class="table-item-container">
                     <div class="table-item" (click)="toggleTable(parentConn, table, $event)" (contextmenu)="openTableContextMenu(parentConn, table, $event)">
                       <span class="chevron" [class.expanded]="table.expanded">▸</span>
                       <span class="table-icon"></span>
@@ -80,7 +85,9 @@
               </ng-template>
 
               <div class="schema-list" *ngIf="activeConnection === conn && conn.type === 'postgresql' && conn.schemas">
-                <div *ngFor="let schema of conn.schemas">
+                
+                <!-- TRACK BY SCHEMA APLICADO -->
+                <div *ngFor="let schema of conn.schemas; trackBy: trackBySchema">
                   <div class="schema-item" (click)="toggleSchema(conn, schema, $event)">
                     <span class="chevron" [class.expanded]="schema.expanded">▸</span>
                     <span class="schema-icon">📂</span>
@@ -160,8 +167,12 @@
             </div>
 
             <ng-template #projectTemplate let-projs let-level="level">
-              <div *ngFor="let p of projs" [style.padding-left.px]="level * 20" class="project-item" [class.expanded]="p.isExpanded">
-                <div class="project-header" (click)="toggleProjectExpansion(p)">
+              
+              <!-- TRACK BY PROJECT APLICADO -->
+              <div *ngFor="let p of projs; trackBy: trackByProject" [style.padding-left.px]="level * 20" class="project-item" [class.expanded]="p.isExpanded">
+                
+                <!-- CORREGIDO EL CLICK EVENT AQUÍ TAMBIÉN -->
+                <div class="project-header" (click)="toggleProjectExpansion(p, $event)">
                   <span class="project-icon">📁</span>
                   <ng-container *ngIf="!p.isEditing">
                     <span class="project-name">{{p.name}}</span>

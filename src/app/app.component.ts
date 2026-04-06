@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgGridAngular } from 'ag-grid-angular';
@@ -87,7 +87,6 @@ export class AppComponent implements OnInit {
     connection: { host: 'localhost', user: 'postgres', password: '', database: 'postgres' }
   };
 
-  // CAMBIO: Por defecto todos los grupos de DB inician colapsados (false)
   groupExpandedState: { [key: string]: boolean } = {
     postgresql: false,
     mysql: false,
@@ -139,7 +138,8 @@ export class AppComponent implements OnInit {
   contextMenuOptions: { label: string, action: string }[] = [];
   contextMenuTarget: any = null; 
 
-  constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef) {}
+  // Inyectamos NgZone para obligar a Angular a registrar los clicks
+  constructor(private electronService: ElectronService, private cdr: ChangeDetectorRef, private zone: NgZone) {}
 
   ngOnInit() {
     this.loadPersistedData();
@@ -147,12 +147,30 @@ export class AppComponent implements OnInit {
     this.addNewTab();
   }
 
+  // OPTIMIZACIÓN: Funciones TrackBy para que Angular no destruya el DOM al hacer click
+  trackByGroup(index: number, group: any) { return group.type; }
+  trackByConn(index: number, conn: any) { return conn.name; }
+  trackByTable(index: number, table: any) { return table.name; }
+  trackBySchema(index: number, schema: any) { return schema.name; }
+  trackByProject(index: number, project: any) { return project.name; }
+
   toggleSidebar() {
-    this.isSidebarOpen = !this.isSidebarOpen;
+    this.zone.run(() => {
+      this.isSidebarOpen = !this.isSidebarOpen;
+      this.cdr.detectChanges();
+    });
   }
 
-  toggleGroup(type: string) {
-    this.groupExpandedState[type] = !this.groupExpandedState[type];
+toggleGroup(type: string, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.zone.run(() => {
+      this.groupExpandedState = {
+        ...this.groupExpandedState,
+        [type]: !this.groupExpandedState[type]
+      };
+      this.cdr.detectChanges();
+    });
   }
 
   get groupedConnections() {
@@ -175,36 +193,42 @@ export class AppComponent implements OnInit {
   }
 
   closeContextMenu() {
-    this.showContextMenu = false;
-    this.contextMenuTarget = null;
-    this.cdr.detectChanges();
+    this.zone.run(() => {
+      this.showContextMenu = false;
+      this.contextMenuTarget = null;
+      this.cdr.detectChanges();
+    });
   }
 
   openConnectionContextMenu(conn: any, event: MouseEvent) {
     event.preventDefault(); 
     event.stopPropagation(); 
-    this.contextMenuTarget = conn;
-    this.contextMenuOptions = [
-      { label: 'Edit Connection', action: 'edit-connection' },
-      { label: 'Delete Connection', action: 'delete-connection' }
-    ];
-    this.contextMenuPositionX = event.clientX;
-    this.contextMenuPositionY = event.clientY;
-    this.showContextMenu = true;
-    this.cdr.detectChanges();
+    this.zone.run(() => {
+      this.contextMenuTarget = conn;
+      this.contextMenuOptions = [
+        { label: 'Edit Connection', action: 'edit-connection' },
+        { label: 'Delete Connection', action: 'delete-connection' }
+      ];
+      this.contextMenuPositionX = event.clientX;
+      this.contextMenuPositionY = event.clientY;
+      this.showContextMenu = true;
+      this.cdr.detectChanges();
+    });
   }
 
   openTableContextMenu(conn: any, table: any, event: MouseEvent) {
     event.preventDefault(); 
     event.stopPropagation(); 
-    this.contextMenuTarget = { conn, table };
-    this.contextMenuOptions = [
-      { label: 'Delete Table', action: 'delete-table' }
-    ];
-    this.contextMenuPositionX = event.clientX;
-    this.contextMenuPositionY = event.clientY;
-    this.showContextMenu = true;
-    this.cdr.detectChanges();
+    this.zone.run(() => {
+      this.contextMenuTarget = { conn, table };
+      this.contextMenuOptions = [
+        { label: 'Delete Table', action: 'delete-table' }
+      ];
+      this.contextMenuPositionX = event.clientX;
+      this.contextMenuPositionY = event.clientY;
+      this.showContextMenu = true;
+      this.cdr.detectChanges();
+    });
   }
 
   handleContextMenuItem(action: string) {
@@ -254,7 +278,6 @@ export class AppComponent implements OnInit {
         if (Array.isArray(parsedProjects) && parsedProjects.length > 0) {
           const ensureExpanded = (projs: Project[]) => {
             projs.forEach(p => {
-              // CAMBIO: Inicia en false para que el Project Manager esté colapsado
               if (p.isExpanded === undefined) p.isExpanded = false;
               if (p.subProjects) ensureExpanded(p.subProjects);
             });
@@ -289,7 +312,6 @@ export class AppComponent implements OnInit {
 
   addProject() {
     if (!this.newProjectName.trim()) return;
-    // CAMBIO: Al crear uno nuevo, inícialo colapsado (false)
     const newP: Project = { name: this.newProjectName.trim(), subProjects: [], isExpanded: false };
     
     if (this.selectedParentProject === 'root') {
@@ -314,9 +336,13 @@ export class AppComponent implements OnInit {
     this.updateProjectLists();
   }
 
-  toggleProjectExpansion(project: Project) {
-    project.isExpanded = !project.isExpanded;
-    this.cdr.detectChanges();
+toggleProjectExpansion(project: Project, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.zone.run(() => {
+      project.isExpanded = !project.isExpanded;
+      this.cdr.detectChanges();
+    });
   }
 
   deleteProject(projectToDelete: Project) {
@@ -392,62 +418,63 @@ export class AppComponent implements OnInit {
   }
 
   openEditConnectionModal(conn: Connection) {
-    this.isEditingConnection = true;
-    this.originalConnName = conn.name; 
-    
-    this.newConn = JSON.parse(JSON.stringify(conn)); 
-    
-    if (!this.newConn.connection) {
-      this.newConn.connection = { host: 'localhost', user: 'postgres', password: '', database: 'postgres' };
-    }
-
-    this.showNewConnection = true;
-    this.cdr.detectChanges();
+    this.zone.run(() => {
+      this.isEditingConnection = true;
+      this.originalConnName = conn.name; 
+      this.newConn = JSON.parse(JSON.stringify(conn)); 
+      if (!this.newConn.connection) {
+        this.newConn.connection = { host: 'localhost', user: 'postgres', password: '', database: 'postgres' };
+      }
+      this.showNewConnection = true;
+      this.cdr.detectChanges();
+    });
   }
 
   async testAndAddConnection() {
     this.isConnecting = true;
     try {
       const res = await this.electronService.connect(this.newConn);
-      if (res.success) {
-        if (this.isEditingConnection) {
-          const index = this.connections.findIndex(c => c.name === this.originalConnName);
-          if (index !== -1) {
-            this.connections[index] = JSON.parse(JSON.stringify(this.newConn));
-            
-            if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
-              this.activeConnection = this.connections[index];
+      this.zone.run(() => {
+        if (res.success) {
+          if (this.isEditingConnection) {
+            const index = this.connections.findIndex(c => c.name === this.originalConnName);
+            if (index !== -1) {
+              this.connections[index] = JSON.parse(JSON.stringify(this.newConn));
+              if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
+                this.activeConnection = this.connections[index];
+              }
             }
+            this.isEditingConnection = false;
+          } else {
+            this.connections.push(JSON.parse(JSON.stringify(this.newConn)));
           }
-          this.isEditingConnection = false;
+          localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
+          this.showNewConnection = false;
+          this.resetNewConn();
         } else {
-          this.connections.push(JSON.parse(JSON.stringify(this.newConn)));
+          alert(`ERROR: ${res.error}`);
         }
-        localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
-        this.showNewConnection = false;
-        this.resetNewConn();
-        this.cdr.detectChanges();
-      } else {
-        alert(`ERROR: ${res.error}`);
-      }
+      });
     } finally {
-      this.isConnecting = false;
-      this.cdr.detectChanges();
+      this.zone.run(() => {
+        this.isConnecting = false;
+        this.cdr.detectChanges();
+      });
     }
   }
 
   deleteConnectionFromModal() {
     if (confirm(`Are you sure you want to delete the connection "${this.originalConnName}"?`)) {
-      this.connections = this.connections.filter(c => c.name !== this.originalConnName);
-      localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
-      
-      if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
-        this.activeConnection = null;
-      }
-      
-      this.showNewConnection = false;
-      this.resetNewConn();
-      this.cdr.detectChanges();
+      this.zone.run(() => {
+        this.connections = this.connections.filter(c => c.name !== this.originalConnName);
+        localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
+        if (this.activeConnection && this.activeConnection.name === this.originalConnName) {
+          this.activeConnection = null;
+        }
+        this.showNewConnection = false;
+        this.resetNewConn();
+        this.cdr.detectChanges();
+      });
     }
   }
 
@@ -455,10 +482,12 @@ export class AppComponent implements OnInit {
     event.preventDefault();
     event.stopPropagation();
     if (confirm(`Are you sure you want to delete the connection "${conn.name}"?`)) {
-      this.connections = this.connections.filter(c => c.name !== conn.name);
-      localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
-      if (this.activeConnection && this.activeConnection.name === conn.name) this.activeConnection = null;
-      this.cdr.detectChanges();
+      this.zone.run(() => {
+        this.connections = this.connections.filter(c => c.name !== conn.name);
+        localStorage.setItem('dbgeek_connections', JSON.stringify(this.connections));
+        if (this.activeConnection && this.activeConnection.name === conn.name) this.activeConnection = null;
+        this.cdr.detectChanges();
+      });
     }
   }
 
@@ -472,7 +501,11 @@ export class AppComponent implements OnInit {
   }
 
   async setActiveConnection(conn: any) {
-    this.activeConnection = conn;
+    this.zone.run(() => {
+      this.activeConnection = conn;
+      this.cdr.detectChanges();
+    });
+    
     if (conn.type === 'postgresql') {
       if (!conn.schemas) this.refreshSchemas(conn);
     } else {
@@ -482,59 +515,93 @@ export class AppComponent implements OnInit {
 
   async refreshSchemas(conn: any) {
     conn.loading = true;
+    this.cdr.detectChanges();
     try {
       const res = await (this.electronService as any).getSchemas 
         ? await (this.electronService as any).getSchemas(conn) 
         : { success: true, data: ['public'] };
       
-      if (res.success) {
-        // CAMBIO: Las carpetas de schemas también inician colapsadas (expanded: false)
-        conn.schemas = res.data.map((s: string) => ({ name: s, tables: null, expanded: false, loading: false }));
-      }
+      this.zone.run(() => {
+        if (res.success) {
+          conn.schemas = res.data.map((s: string) => ({ name: s, tables: null, expanded: false, loading: false }));
+        }
+      });
     } catch (e) {
-      conn.schemas = [{ name: 'public', tables: null, expanded: false, loading: false }];
+      this.zone.run(() => {
+        conn.schemas = [{ name: 'public', tables: null, expanded: false, loading: false }];
+      });
     }
-    conn.loading = false;
-    this.cdr.detectChanges();
+    this.zone.run(() => {
+      conn.loading = false;
+      this.cdr.detectChanges();
+    });
   }
 
   async toggleSchema(conn: any, schema: any, event: MouseEvent) {
+    event.preventDefault();
     event.stopPropagation();
-    schema.expanded = !schema.expanded;
-    if (schema.expanded && !schema.tables) {
-      schema.loading = true;
-      const res = await this.electronService.getTables(conn, schema.name);
-      schema.loading = false;
-      if (res.success) {
-        schema.tables = res.data.map((t: string) => ({ name: t, schema: schema.name, columns: [], expanded: false }));
-      }
+    
+    this.zone.run(() => {
+      schema.expanded = !schema.expanded;
       this.cdr.detectChanges();
+    });
+    
+    if (schema.expanded && !schema.tables) {
+      this.zone.run(() => {
+        schema.loading = true;
+        this.cdr.detectChanges();
+      });
+
+      const res = await this.electronService.getTables(conn, schema.name);
+      
+      this.zone.run(() => {
+        schema.loading = false;
+        if (res.success) {
+          schema.tables = res.data.map((t: string) => ({ name: t, schema: schema.name, columns: [], expanded: false }));
+        }
+        this.cdr.detectChanges();
+      });
     }
   }
 
   async refreshConnection(conn: any) {
     conn.loading = true;
-    const res = await this.electronService.getTables(conn);
-    conn.loading = false;
-    if (res.success) {
-      // CAMBIO: Las tablas inician colapsadas
-      conn.tables = res.data.map((t: string) => ({ name: t, columns: [], expanded: false }));
-    }
     this.cdr.detectChanges();
+    const res = await this.electronService.getTables(conn);
+    this.zone.run(() => {
+      conn.loading = false;
+      if (res.success) {
+        conn.tables = res.data.map((t: string) => ({ name: t, columns: [], expanded: false }));
+      }
+      this.cdr.detectChanges();
+    });
   }
 
   async toggleTable(conn: any, table: any, event: MouseEvent) {
+    event.preventDefault();
     event.stopPropagation();
-    table.expanded = !table.expanded;
+    
+    this.zone.run(() => {
+      table.expanded = !table.expanded;
+      this.cdr.detectChanges();
+    });
+    
     if (table.expanded && table.columns.length === 0) {
-      table.loading = true;
+      this.zone.run(() => {
+        table.loading = true;
+        this.cdr.detectChanges();
+      });
+      
       const res = await this.electronService.getColumns(conn, table.name, table.schema);
-      table.loading = false;
-      if (res.success) {
-        table.columns = res.data;
-      }
+      
+      this.zone.run(() => {
+        table.loading = false;
+        if (res.success) {
+          table.columns = res.data;
+        }
+        this.cdr.detectChanges();
+      });
     }
-    this.cdr.detectChanges();
   }
 
   async deleteTable(conn: any, table: any, event: MouseEvent) {
@@ -548,19 +615,21 @@ export class AppComponent implements OnInit {
 
     try {
       const res = await this.electronService.dbDropTable(conn, table.name, table.schema);
-      if (res.success) {
-        if (conn.type === 'postgresql' && table.schema) {
-          const schema = conn.schemas.find((s: any) => s.name === table.schema);
-          if (schema && schema.tables) {
-             schema.tables = schema.tables.filter((t: any) => t.name !== table.name);
+      this.zone.run(() => {
+        if (res.success) {
+          if (conn.type === 'postgresql' && table.schema) {
+            const schema = conn.schemas.find((s: any) => s.name === table.schema);
+            if (schema && schema.tables) {
+               schema.tables = schema.tables.filter((t: any) => t.name !== table.name);
+            }
+          } else {
+            conn.tables = conn.tables.filter((t: any) => t.name !== table.name);
           }
+          this.cdr.detectChanges();
         } else {
-          conn.tables = conn.tables.filter((t: any) => t.name !== table.name);
+          alert(`Failed to delete table: ${res.error}`);
         }
-        this.cdr.detectChanges();
-      } else {
-        alert(`Failed to delete table: ${res.error}`);
-      }
+      });
     } catch (error: any) {
       console.error('Error deleting table:', error);
       alert(`An error occurred while deleting table: ${error.message}`);
@@ -571,36 +640,47 @@ export class AppComponent implements OnInit {
     const fullTableName = table.schema ? `"${table.schema}"."${table.name}"` : `"${table.name}"`;
     const sql = `SELECT * FROM ${fullTableName} LIMIT 100;`;
     
-    let queryTab = this.tabs[this.activeTabIndex];
-    if (!queryTab || queryTab.type !== 'query') {
-      this.addNewTab();
-      queryTab = this.tabs[this.activeTabIndex];
-    }
-    queryTab.sql = sql;
-    this.executeQuery();
+    this.zone.run(() => {
+      let queryTab = this.tabs[this.activeTabIndex];
+      if (!queryTab || queryTab.type !== 'query') {
+        this.addNewTab();
+        queryTab = this.tabs[this.activeTabIndex];
+      }
+      queryTab.sql = sql;
+      this.executeQuery();
+    });
   }
 
   addNewTab() {
-    this.tabCounter++;
-    this.tabs.push({ id: this.tabCounter, title: `Query ${this.tabCounter}`, sql: '', type: 'query' });
-    this.activeTabIndex = this.tabs.length - 1;
+    this.zone.run(() => {
+      this.tabCounter++;
+      this.tabs.push({ id: this.tabCounter, title: `Query ${this.tabCounter}`, sql: '', type: 'query' });
+      this.activeTabIndex = this.tabs.length - 1;
+      this.cdr.detectChanges();
+    });
   }
 
   openProjectManager() {
-    const existing = this.tabs.findIndex(t => t.type === 'project-manager');
-    if (existing !== -1) {
-      this.activeTabIndex = existing;
-    } else {
-      this.tabCounter++;
-      this.tabs.push({ id: this.tabCounter, title: 'Project Manager', sql: '', type: 'project-manager' });
-      this.activeTabIndex = this.tabs.length - 1;
-    }
+    this.zone.run(() => {
+      const existing = this.tabs.findIndex(t => t.type === 'project-manager');
+      if (existing !== -1) {
+        this.activeTabIndex = existing;
+      } else {
+        this.tabCounter++;
+        this.tabs.push({ id: this.tabCounter, title: 'Project Manager', sql: '', type: 'project-manager' });
+        this.activeTabIndex = this.tabs.length - 1;
+      }
+      this.cdr.detectChanges();
+    });
   }
 
   closeTab(index: number, event: MouseEvent) {
     event.stopPropagation();
-    this.tabs.splice(index, 1);
-    if (this.activeTabIndex >= this.tabs.length) this.activeTabIndex = this.tabs.length - 1;
+    this.zone.run(() => {
+      this.tabs.splice(index, 1);
+      if (this.activeTabIndex >= this.tabs.length) this.activeTabIndex = this.tabs.length - 1;
+      this.cdr.detectChanges();
+    });
   }
 
   async executeQuery() {
@@ -628,21 +708,29 @@ export class AppComponent implements OnInit {
       }
     }
 
-    this.executing = true;
+    this.zone.run(() => {
+      this.executing = true;
+      this.cdr.detectChanges();
+    });
+
     const start = Date.now();
     try {
       const res = await this.electronService.query(this.activeConnection, sqlToExecute);
-      this.lastExecutionTime = Date.now() - start;
-      if (res.success) {
-        this.results = res.data;
-        this.updateColumnDefs(res.data);
-      } else {
-        alert('Query Error: ' + res.error);
+      this.zone.run(() => {
+        this.lastExecutionTime = Date.now() - start;
+        if (res.success) {
+          this.results = res.data;
+          this.updateColumnDefs(res.data);
+        } else {
+          alert('Query Error: ' + res.error);
+        }
         this.cdr.detectChanges();
-      }
+      });
     } finally {
-      this.executing = false;
-      this.cdr.detectChanges();
+      this.zone.run(() => {
+        this.executing = false;
+        this.cdr.detectChanges();
+      });
     }  
   }
 
